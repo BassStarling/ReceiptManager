@@ -9,14 +9,13 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.ListView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.text.NumberFormat;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Locale;
 
 public class ReceiptApp extends Application {
@@ -56,6 +55,10 @@ public class ReceiptApp extends Application {
             new Label("商品明細（レシートを選択してください）");
 
     private final Label statusLabel = new Label();
+
+    // 商品名検索時に、商品明細を一致した商品だけに絞り込む設定
+    private boolean showOnlyMatchedProducts = true;
+    private String activeProductNameFilter = null;
 
     private final NumberFormat yenFormat =
             NumberFormat.getNumberInstance(Locale.JAPAN);
@@ -99,6 +102,366 @@ public class ReceiptApp extends Application {
         receiptForm.setPadding(new Insets(5));
 
         receiptForm.setPadding(new Insets(5));
+
+
+        ComboBox<String> searchTypeBox = new ComboBox<>();
+        searchTypeBox.getItems().addAll(
+                "店舗名",
+                "商品名",
+                "タグ（カテゴリ）",
+                "購入日"
+        );
+        searchTypeBox.setValue("店舗名");
+
+
+        TextField searchField = new TextField();
+        searchField.setPromptText("店舗名を入力");
+
+// 入力候補の一覧
+        ListView<String> searchSuggestions = new ListView<>();
+        searchSuggestions.setMaxHeight(120);
+        searchSuggestions.setVisible(false);
+        searchSuggestions.setManaged(false);
+
+// 入力欄と候補一覧を縦に配置
+        VBox searchInputArea = new VBox(
+                0,
+                searchField,
+                searchSuggestions
+        );
+
+        DatePicker searchDatePicker = new DatePicker();
+
+        ComboBox<String> searchCategoryBox = new ComboBox<>();
+        try {
+            searchCategoryBox.getItems().setAll(
+                    repository.findAllCategories()
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        Button searchButton = new Button("検索");
+        Button clearSearchButton = new Button("検索解除");
+        Button productOnlyFilterButton = new Button(
+                "商品名検索で商品だけを表示する（ON）");
+
+        productOnlyFilterButton.setOnAction(event -> {
+            showOnlyMatchedProducts = !showOnlyMatchedProducts;
+            productOnlyFilterButton.setText(
+                    "商品名検索で商品だけを表示する（"
+                            + (showOnlyMatchedProducts ? "ON" : "OFF") + "）");
+            refreshItemsForSelectedReceipt();
+        });
+
+        Label searchResultLabel = new Label("全件表示");
+
+        // 追加検索条件を管理する領域
+        List<SearchConditionRow> extraSearchConditions = new ArrayList<>();
+        VBox extraSearchConditionsBox = new VBox(5);
+
+        Button addSearchConditionButton = new Button("条件を追加");
+        addSearchConditionButton.setOnAction(event -> {
+            try {
+                SearchConditionRow row =
+                        new SearchConditionRow(repository.findAllCategories());
+
+                row.removeButton.setOnAction(removeEvent -> {
+                    extraSearchConditionsBox.getChildren().remove(row.container);
+                    extraSearchConditions.remove(row);
+                });
+
+                extraSearchConditions.add(row);
+                extraSearchConditionsBox.getChildren().add(row.container);
+            } catch (Exception e) {
+                showError("検索条件を追加できませんでした。", e);
+            }
+        });
+
+        HBox searchForm = new HBox(
+                10,
+                searchTypeBox,
+                searchInputArea,
+                searchDatePicker,
+                searchCategoryBox,
+                searchButton,
+                addSearchConditionButton,
+                clearSearchButton,
+                searchResultLabel
+        );
+
+        HBox productFilterForm = new HBox(8, productOnlyFilterButton);
+        productFilterForm.setPadding(new Insets(3, 5, 3, 5));
+
+        searchDatePicker.setVisible(false);
+        searchDatePicker.setManaged(false);
+
+        searchCategoryBox.setVisible(false);
+        searchCategoryBox.setManaged(false);
+
+        searchTypeBox.setOnAction(event -> {
+            String type = searchTypeBox.getValue();
+
+            searchField.setVisible("店舗名".equals(type)
+                    || "商品名".equals(type));
+            searchField.setManaged(searchField.isVisible());
+
+            searchDatePicker.setVisible("購入日".equals(type));
+            searchDatePicker.setManaged(searchDatePicker.isVisible());
+
+            searchCategoryBox.setVisible("タグ（カテゴリ）".equals(type));
+            searchCategoryBox.setManaged(searchCategoryBox.isVisible());
+
+            if ("店舗名".equals(type)) {
+                searchField.setPromptText("店舗名を入力");
+            } else if ("商品名".equals(type)) {
+                searchField.setPromptText("商品名を入力");
+            }
+        });
+
+
+        // 候補リストを更新する
+        Runnable updateSuggestions = () -> {
+            String type = searchTypeBox.getValue();
+
+            if (!"店舗名".equals(type)
+                    && !"商品名".equals(type)) {
+                searchSuggestions.getItems().clear();
+                searchSuggestions.setVisible(false);
+                searchSuggestions.setManaged(false);
+                return;
+            }
+
+            try {
+                List<String> allSuggestions = new ArrayList<>();
+
+                // 店舗名の候補を取得
+                if ("店舗名".equals(type)) {
+                    for (Receipt receipt : repository.findAll()) {
+                        String name = receipt.getStoreName();
+
+                        if (name != null && !name.isBlank()
+                                && !allSuggestions.contains(name)) {
+                            allSuggestions.add(name);
+                        }
+                    }
+                }
+
+                // 商品名の候補を取得
+                else {
+                    for (Receipt receipt : repository.findAll()) {
+                        for (ReceiptItem item :
+                                repository.findItemsByReceiptId(
+                                        receipt.getId())) {
+
+                            String name = item.getItemName();
+
+                            if (name != null && !name.isBlank()
+                                    && !allSuggestions.contains(name)) {
+                                allSuggestions.add(name);
+                            }
+                        }
+                    }
+                }
+
+                // 入力文字に一致する候補だけを表示
+                String keyword = searchField.getText()
+                        .trim()
+                        .toLowerCase(java.util.Locale.ROOT);
+
+                List<String> matched = allSuggestions.stream()
+                        .filter(name -> name.toLowerCase(
+                                        java.util.Locale.ROOT)
+                                .contains(keyword))
+                        .sorted(String.CASE_INSENSITIVE_ORDER)
+                        .toList();
+
+                searchSuggestions.getItems().setAll(matched);
+
+                boolean show = !matched.isEmpty()
+                        && searchField.isVisible();
+
+                searchSuggestions.setVisible(show);
+                searchSuggestions.setManaged(show);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                searchSuggestions.getItems().clear();
+                searchSuggestions.setVisible(false);
+                searchSuggestions.setManaged(false);
+            }
+        };
+
+        // 入力文字が変わるたびに候補を更新
+        searchField.textProperty().addListener(
+                (observable, oldValue, newValue) ->
+                        updateSuggestions.run()
+        );
+
+        // 検索方法を変更したときも候補を更新
+        searchTypeBox.valueProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    searchField.clear();
+                    updateSuggestions.run();
+                }
+        );
+
+
+        // 選択した候補を入力欄に反映
+        Runnable selectSuggestion = () -> {
+            String selected =
+                    searchSuggestions.getSelectionModel()
+                            .getSelectedItem();
+
+            if (selected != null) {
+                searchField.setText(selected);
+                searchField.positionCaret(selected.length());
+
+                searchSuggestions.setVisible(false);
+                searchSuggestions.setManaged(false);
+                searchField.requestFocus();
+            }
+        };
+
+        // マウスクリックで選択
+        searchSuggestions.setOnMouseClicked(event -> {
+            if (event.getClickCount() >= 1) {
+                selectSuggestion.run();
+            }
+        });
+
+        // 候補リスト上でもEnterやTabで選択
+        searchSuggestions.setOnKeyPressed(event -> {
+            switch (event.getCode()) {
+                case ENTER, TAB -> {
+                    selectSuggestion.run();
+                    event.consume();
+                }
+                default -> {
+                }
+            }
+        });
+
+        // 入力欄でTabを押すと先頭の候補を選択
+        searchField.setOnKeyPressed(event -> {
+            if (event.getCode()
+                    == javafx.scene.input.KeyCode.TAB
+                    && searchSuggestions.isVisible()
+                    && !searchSuggestions.getItems().isEmpty()) {
+
+                searchSuggestions.getSelectionModel()
+                        .selectFirst();
+
+                selectSuggestion.run();
+                event.consume();
+            }
+        });
+
+
+        // 検索ボタン：最初の条件と追加条件をすべて満たすレシートを表示
+        searchButton.setOnAction(event -> {
+            try {
+                List<Receipt> allReceipts = repository.findAll();
+                List<SearchConditionValue> conditions = new ArrayList<>();
+
+                // 既存の検索欄を最初の条件として追加
+                String type = searchTypeBox.getValue();
+                String keyword = searchField.getText().trim();
+                LocalDate searchDate = searchDatePicker.getValue();
+                String category = searchCategoryBox.getValue();
+
+                String validationMessage = validateSearchCondition(
+                        type, keyword, searchDate, category);
+                if (validationMessage != null) {
+                    showMessage(validationMessage);
+                    return;
+                }
+
+                conditions.add(new SearchConditionValue(
+                        type, keyword, searchDate, category));
+
+                // 追加された検索条件を確認して追加
+                for (SearchConditionRow row : extraSearchConditions) {
+                    String extraType = row.typeBox.getValue();
+                    String extraKeyword = row.textField.getText().trim();
+                    LocalDate extraDate = row.datePicker.getValue();
+                    String extraCategory = row.categoryBox.getValue();
+
+                    validationMessage = validateSearchCondition(
+                            extraType, extraKeyword, extraDate, extraCategory);
+                    if (validationMessage != null) {
+                        showMessage("追加条件：" + validationMessage);
+                        return;
+                    }
+
+                    conditions.add(new SearchConditionValue(
+                            extraType, extraKeyword, extraDate, extraCategory));
+                }
+
+                List<Receipt> results = new ArrayList<>();
+
+                for (Receipt receipt : allReceipts) {
+                    boolean matchesAll = true;
+
+                    for (SearchConditionValue condition : conditions) {
+                        if (!matchesSearchCondition(receipt, condition)) {
+                            matchesAll = false;
+                            break;
+                        }
+                    }
+
+                    if (matchesAll) {
+                        results.add(receipt);
+                    }
+                }
+
+                // メイン条件が商品名検索の場合、商品明細側の絞り込み語を設定
+                activeProductNameFilter = "商品名".equals(type) ? keyword : null;
+
+                receiptTable.getSelectionModel().clearSelection();
+                receipts.setAll(results);
+
+                if (!results.isEmpty()) {
+                    receiptTable.getSelectionModel().select(0);
+                } else {
+                    showMessage("該当するレシートはありません。");
+                }
+
+                searchResultLabel.setText(
+                        "検索結果：" + results.size()
+                                + " 件 / 全 " + allReceipts.size() + " 件"
+                );
+
+            } catch (Exception e) {
+                showError("検索に失敗しました。", e);
+            }
+        });
+
+        // 検索解除ボタン
+        clearSearchButton.setOnAction(event -> {
+            activeProductNameFilter = null;
+            searchField.clear();
+            searchDatePicker.setValue(null);
+            searchCategoryBox.setValue(null);
+
+            searchSuggestions.getItems().clear();
+            searchSuggestions.setVisible(false);
+            searchSuggestions.setManaged(false);
+
+            // 追加した検索条件もすべて解除
+            for (SearchConditionRow row :
+                    new ArrayList<>(extraSearchConditions)) {
+                extraSearchConditionsBox.getChildren().remove(row.container);
+            }
+            extraSearchConditions.clear();
+
+            receiptTable.getSelectionModel().clearSelection();
+
+            refreshReceipts();
+
+            searchResultLabel.setText("全 " + receipts.size() + " 件");
+            statusLabel.setText("検索を解除しました。");
+        });
 
         categoryNameField.setPromptText("新しいカテゴリ名");
         categoryNameField.setPrefWidth(160);
@@ -282,6 +645,20 @@ public class ReceiptApp extends Application {
 
         itemTable.setItems(items);
 
+        // 商品を選択したら、編集フォームに現在の値を自動入力する
+        itemTable.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldItem, newItem) -> {
+                    if (newItem != null) {
+                        itemNameField.setText(newItem.getItemName());
+                        quantityField.setText(
+                                String.valueOf(newItem.getQuantity()));
+                        unitPriceField.setText(
+                                String.valueOf(newItem.getUnitPriceYen()));
+                        categoryBox.setValue(newItem.getCategoryName());
+                    }
+                });
+
         itemTable.setColumnResizePolicy(
                 TableView.CONSTRAINED_RESIZE_POLICY
         );
@@ -328,6 +705,9 @@ public class ReceiptApp extends Application {
                 receiptTitle,
                 receiptForm,
                 receiptTable,
+                searchForm,
+                productFilterForm,
+                extraSearchConditionsBox,
                 categoryForm,
                 deleteReceiptButton,
                 new Separator(),
@@ -496,9 +876,23 @@ public class ReceiptApp extends Application {
         );
 
         try {
-            items.setAll(
-                    repository.findItemsByReceiptId(selected.getId())
-            );
+            List<ReceiptItem> receiptItems =
+                    repository.findItemsByReceiptId(selected.getId());
+
+            if (showOnlyMatchedProducts
+                    && activeProductNameFilter != null
+                    && !activeProductNameFilter.isBlank()) {
+                String keyword = activeProductNameFilter
+                        .toLowerCase(Locale.ROOT);
+
+                items.setAll(receiptItems.stream()
+                        .filter(item -> item.getItemName() != null
+                                && item.getItemName().toLowerCase(Locale.ROOT)
+                                .contains(keyword))
+                        .toList());
+            } else {
+                items.setAll(receiptItems);
+            }
         } catch (Exception e) {
             showError("商品明細を読み込めませんでした。", e);
         }
@@ -640,6 +1034,138 @@ public class ReceiptApp extends Application {
         launch(args);
     }
 
+
+    // 検索条件の入力値をまとめる
+    private record SearchConditionValue(
+            String type,
+            String keyword,
+            LocalDate date,
+            String category) {
+    }
+
+    // 追加検索条件1行分のUI
+    private static class SearchConditionRow {
+        final ComboBox<String> typeBox = new ComboBox<>();
+        final TextField textField = new TextField();
+        final DatePicker datePicker = new DatePicker();
+        final ComboBox<String> categoryBox = new ComboBox<>();
+        final Button removeButton = new Button("条件を削除");
+        final HBox container;
+
+        SearchConditionRow(List<String> categories) {
+            typeBox.getItems().addAll(
+                    "店舗名", "商品名", "タグ（カテゴリ）", "購入日");
+            typeBox.setValue("店舗名");
+
+            textField.setPromptText("店舗名を入力");
+            categoryBox.getItems().setAll(categories);
+
+            datePicker.setVisible(false);
+            datePicker.setManaged(false);
+            categoryBox.setVisible(false);
+            categoryBox.setManaged(false);
+
+            typeBox.valueProperty().addListener(
+                    (observable, oldValue, newValue) -> updateVisibility());
+
+            container = new HBox(
+                    8,
+                    new Label("追加条件"),
+                    typeBox,
+                    textField,
+                    datePicker,
+                    categoryBox,
+                    removeButton
+            );
+            container.setPadding(new Insets(3));
+            updateVisibility();
+        }
+
+        private void updateVisibility() {
+            String type = typeBox.getValue();
+
+            boolean textVisible =
+                    "店舗名".equals(type) || "商品名".equals(type);
+            textField.setVisible(textVisible);
+            textField.setManaged(textVisible);
+
+            boolean dateVisible = "購入日".equals(type);
+            datePicker.setVisible(dateVisible);
+            datePicker.setManaged(dateVisible);
+
+            boolean categoryVisible = "タグ（カテゴリ）".equals(type);
+            categoryBox.setVisible(categoryVisible);
+            categoryBox.setManaged(categoryVisible);
+
+            if ("店舗名".equals(type)) {
+                textField.setPromptText("店舗名を入力");
+            } else if ("商品名".equals(type)) {
+                textField.setPromptText("商品名を入力");
+            }
+        }
+    }
+
+    // 検索条件の入力漏れを確認する。問題がなければnullを返す
+    private String validateSearchCondition(
+            String type, String keyword, LocalDate date, String category) {
+
+        if ("店舗名".equals(type) && keyword.isBlank()) {
+            return "店舗名を入力してください。";
+        }
+        if ("商品名".equals(type) && keyword.isBlank()) {
+            return "商品名を入力してください。";
+        }
+        if ("タグ（カテゴリ）".equals(type) && category == null) {
+            return "カテゴリを選択してください。";
+        }
+        if ("購入日".equals(type) && date == null) {
+            return "購入日を選択してください。";
+        }
+        return null;
+    }
+
+    // 指定された1つの条件をレシートが満たすか確認する
+    private boolean matchesSearchCondition(
+            Receipt receipt, SearchConditionValue condition) throws Exception {
+
+        String type = condition.type();
+
+        if ("店舗名".equals(type)) {
+            return receipt.getStoreName() != null
+                    && receipt.getStoreName().toLowerCase(Locale.ROOT)
+                    .contains(condition.keyword().toLowerCase(Locale.ROOT));
+        }
+
+        if ("購入日".equals(type)) {
+            return condition.date().equals(receipt.getPurchaseDate());
+        }
+
+        List<ReceiptItem> receiptItems =
+                repository.findItemsByReceiptId(receipt.getId());
+
+        if ("商品名".equals(type)) {
+            String keyword = condition.keyword().toLowerCase(Locale.ROOT);
+            for (ReceiptItem item : receiptItems) {
+                if (item.getItemName() != null
+                        && item.getItemName().toLowerCase(Locale.ROOT)
+                        .contains(keyword)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if ("タグ（カテゴリ）".equals(type)) {
+            for (ReceiptItem item : receiptItems) {
+                if (condition.category().equals(item.getCategoryName())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        return false;
+    }
 
     private void deleteCategory() {
         String selectedCategory = categoryBox.getValue();
