@@ -11,12 +11,14 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.geometry.Insets;
 import javafx.scene.control.ListView;
+import javafx.util.Callback;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.DayOfWeek;
+import java.time.YearMonth;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
 import java.text.NumberFormat;
 import java.time.LocalDate;
-import java.util.Locale;
 
 public class ReceiptApp extends Application {
 
@@ -54,7 +56,9 @@ public class ReceiptApp extends Application {
     private final Label detailTitle =
             new Label("商品明細（レシートを選択してください）");
 
-    private final Label statusLabel = new Label();
+    TextField statusLabel = new TextField();
+    statusLabel.setEditable(false);
+    statusLabel.setFocusTraversable(false);
 
     // 商品名検索時に、商品明細を一致した商品だけに絞り込む設定
     private boolean showOnlyMatchedProducts = true;
@@ -189,6 +193,10 @@ public class ReceiptApp extends Application {
                 clearSearchButton,
                 searchResultLabel
         );
+
+        Button aggregationButton = new Button("支出集計");
+
+        aggregationButton.setOnAction(event -> showAggregationDialog());
 
         HBox productFilterForm = new HBox(8, productOnlyFilterButton);
         productFilterForm.setPadding(new Insets(3, 5, 3, 5));
@@ -494,6 +502,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> dateColumn =
                 new TableColumn<>("購入日");
+        dateColumn.setCellFactory(selectableTextCellFactory());
 
         dateColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -503,6 +512,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> storeColumn =
                 new TableColumn<>("店名");
+        storeColumn.setCellFactory(selectableTextCellFactory());
 
         storeColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -511,6 +521,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> totalColumn =
                 new TableColumn<>("合計金額");
+        totalColumn.setCellFactory(selectableTextCellFactory());
 
         totalColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -589,6 +600,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> itemNameColumn =
                 new TableColumn<>("商品名");
+        itemNameColumn.setCellFactory(selectableTextCellFactory());
 
         itemNameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -597,6 +609,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> quantityColumn =
                 new TableColumn<>("数量");
+        quantityColumn.setCellFactory(selectableTextCellFactory());
 
         quantityColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -607,6 +620,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> unitPriceColumn =
                 new TableColumn<>("単価");
+        unitPriceColumn.setCellFactory(selectableTextCellFactory());
 
         unitPriceColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -617,6 +631,8 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> subtotalColumn =
                 new TableColumn<>("小計");
+        subtotalColumn.setCellFactory(selectableTextCellFactory());
+
 
         subtotalColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -627,6 +643,7 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> categoryColumn =
                 new TableColumn<>("カテゴリ");
+        categoryColumn.setCellFactory(selectableTextCellFactory());
 
         categoryColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -706,6 +723,7 @@ public class ReceiptApp extends Application {
                 receiptForm,
                 receiptTable,
                 searchForm,
+                aggregationButton,
                 productFilterForm,
                 extraSearchConditionsBox,
                 categoryForm,
@@ -1385,5 +1403,293 @@ public class ReceiptApp extends Application {
         } catch (Exception e) {
             showError("商品の更新に失敗しました。", e);
         }
+    }
+
+    private static class AggregationRow {
+        private final String period;
+        private final String groupName;
+        private final double totalYen;
+
+        public AggregationRow(
+                String period,
+                String groupName,
+                double totalYen) {
+            this.period = period;
+            this.groupName = groupName;
+            this.totalYen = totalYen;
+        }
+
+        public String getPeriod() {
+            return period;
+        }
+
+        public String getGroupName() {
+            return groupName;
+        }
+
+        public double getTotalYen() {
+            return totalYen;
+        }
+    }
+
+    private void showAggregationDialog() {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("支出集計");
+
+        dialog.getDialogPane().getButtonTypes()
+                .add(ButtonType.CLOSE);
+
+        ComboBox<String> periodBox = new ComboBox<>();
+        periodBox.getItems().addAll("週別", "月別");
+        periodBox.setValue("月別");
+
+        ComboBox<String> groupBox = new ComboBox<>();
+        groupBox.getItems().addAll("店舗別", "カテゴリ別");
+        groupBox.setValue("店舗別");
+
+        DatePicker startDatePicker = new DatePicker();
+        DatePicker endDatePicker = new DatePicker();
+
+        Button aggregateButton = new Button("集計する");
+
+        Label totalLabel = new Label();
+
+        TableView<AggregationRow> table = new TableView<>();
+
+        TableColumn<AggregationRow, String> periodColumn =
+                new TableColumn<>("期間");
+
+        periodColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        cell.getValue().getPeriod()));
+
+        TableColumn<AggregationRow, String> groupColumn =
+                new TableColumn<>("店舗／カテゴリ");
+
+        groupColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        cell.getValue().getGroupName()));
+
+        TableColumn<AggregationRow, String> amountColumn =
+                new TableColumn<>("支出額");
+
+        amountColumn.setCellValueFactory(cell ->
+                new javafx.beans.property.SimpleStringProperty(
+                        yenFormat.format(
+                                cell.getValue().getTotalYen()) + " 円"));
+
+        table.getColumns().addAll(
+                periodColumn,
+                groupColumn,
+                amountColumn
+        );
+        periodColumn.setCellFactory(selectableTextCellFactory());
+        groupColumn.setCellFactory(selectableTextCellFactory());
+        amountColumn.setCellFactory(selectableTextCellFactory());
+
+        table.setColumnResizePolicy(
+                TableView.CONSTRAINED_RESIZE_POLICY);
+
+        table.setPrefHeight(400);
+
+        Runnable runAggregation = () -> {
+            try {
+                LocalDate startDate = startDatePicker.getValue();
+                LocalDate endDate = endDatePicker.getValue();
+
+                if (startDate != null && endDate != null
+                        && startDate.isAfter(endDate)) {
+                    showMessage("開始日は終了日より前にしてください。");
+                    return;
+                }
+
+                // 集計結果を「期間＋店舗／カテゴリ」ごとに保存する
+                Map<String, Double> totals = new TreeMap<>();
+
+                List<Receipt> allReceipts = repository.findAll();
+
+                for (Receipt receipt : allReceipts) {
+                    LocalDate date = receipt.getPurchaseDate();
+
+                    if (date == null) {
+                        continue;
+                    }
+
+                    if (startDate != null && date.isBefore(startDate)) {
+                        continue;
+                    }
+
+                    if (endDate != null && date.isAfter(endDate)) {
+                        continue;
+                    }
+
+                    String period;
+
+                    if ("週別".equals(periodBox.getValue())) {
+                        LocalDate monday = date.with(
+                                TemporalAdjusters.previousOrSame(
+                                        DayOfWeek.MONDAY));
+
+                        LocalDate sunday = monday.plusDays(6);
+
+                        period = monday + " ～ " + sunday;
+                    } else {
+                        period = YearMonth.from(date).toString();
+                    }
+
+                    // 店舗別集計
+                    if ("店舗別".equals(groupBox.getValue())) {
+                        String store = receipt.getStoreName();
+
+                        if (store == null || store.isBlank()) {
+                            store = "店舗名なし";
+                        }
+
+                        String key = period + "\u0001" + store;
+
+                        totals.merge(
+                                key,
+                                (double) receipt.getTotalYen(),
+                                Double::sum
+                        );
+                    }
+
+                    // カテゴリ別集計
+                    else {
+                        List<ReceiptItem> receiptItems =
+                                repository.findItemsByReceiptId(
+                                        receipt.getId());
+
+                        for (ReceiptItem item : receiptItems) {
+                            String category = item.getCategoryName();
+
+                            if (category == null || category.isBlank()) {
+                                category = "未分類";
+                            }
+
+                            String key = period + "\u0001" + category;
+
+                            totals.merge(
+                                    key,
+                                    (double) item.getSubtotalYen(),
+                                    Double::sum
+                            );
+                        }
+                    }
+                }
+
+                List<AggregationRow> rows = new ArrayList<>();
+
+                for (Map.Entry<String, Double> entry
+                        : totals.entrySet()) {
+
+                    String[] parts = entry.getKey().split("\u0001", 2);
+
+                    rows.add(new AggregationRow(
+                            parts[0],
+                            parts[1],
+                            entry.getValue()
+                    ));
+                }
+
+                // 期間、次に店舗／カテゴリの順に並べる
+                rows.sort(
+                        Comparator.comparing(AggregationRow::getPeriod)
+                                .thenComparing(
+                                        AggregationRow::getGroupName)
+                );
+
+                table.getItems().setAll(rows);
+
+                double grandTotal = rows.stream()
+                        .mapToDouble(AggregationRow::getTotalYen)
+                        .sum();
+
+                totalLabel.setText(
+                        "集計対象：" + rows.size()
+                                + " 件　合計："
+                                + yenFormat.format(grandTotal) + " 円"
+                );
+
+            } catch (Exception e) {
+                showError("支出の集計に失敗しました。", e);
+            }
+        };
+
+        aggregateButton.setOnAction(
+                event -> runAggregation.run());
+
+        HBox controls = new HBox(
+                8,
+                new Label("期間"),
+                periodBox,
+                new Label("集計方法"),
+                groupBox
+        );
+
+        HBox dateControls = new HBox(
+                8,
+                new Label("開始日"),
+                startDatePicker,
+                new Label("終了日"),
+                endDatePicker,
+                aggregateButton
+        );
+
+        VBox content = new VBox(
+                10,
+                controls,
+                dateControls,
+                totalLabel,
+                table
+        );
+
+        content.setPadding(new Insets(10));
+
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().setPrefWidth(750);
+
+        // 初期表示時は全期間を集計する
+        runAggregation.run();
+
+        dialog.show();
+    }
+
+    private <S> Callback<TableColumn<S, String>, TableCell<S, String>>
+    selectableTextCellFactory() {
+
+        return column -> new TableCell<S, String>() {
+
+            private final TextField textField = new TextField();
+
+            {
+                // 文字の編集は禁止する
+                textField.setEditable(false);
+
+                // セル内の幅に合わせる
+                textField.setMaxWidth(Double.MAX_VALUE);
+
+                // 背景と枠線を透明にする
+                textField.setStyle(
+                        "-fx-background-color: transparent;" +
+                                "-fx-border-color: transparent;" +
+                                "-fx-padding: 0 3 0 3;"
+                );
+            }
+
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+
+                if (empty || item == null) {
+                    textField.clear();
+                    setGraphic(null);
+                } else {
+                    textField.setText(item);
+                    setText(null);
+                    setGraphic(textField);
+                }
+            }
+        };
     }
 }
