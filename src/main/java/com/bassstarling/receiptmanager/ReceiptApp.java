@@ -5,6 +5,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -19,8 +20,18 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.text.NumberFormat;
 import java.time.LocalDate;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
+
+import javafx.geometry.Orientation;
+import javafx.scene.control.SplitPane;
+import javafx.scene.layout.Priority;
 
 public class ReceiptApp extends Application {
+
+    // アプリの設定保存先
+    private final Preferences uiPreferences =
+            Preferences.userNodeForPackage(ReceiptApp.class);
 
     private final ReceiptRepository repository =
             new ReceiptRepository();
@@ -57,8 +68,6 @@ public class ReceiptApp extends Application {
             new Label("商品明細（レシートを選択してください）");
 
     TextField statusLabel = new TextField();
-    statusLabel.setEditable(false);
-    statusLabel.setFocusTraversable(false);
 
     // 商品名検索時に、商品明細を一致した商品だけに絞り込む設定
     private boolean showOnlyMatchedProducts = true;
@@ -71,6 +80,7 @@ public class ReceiptApp extends Application {
     public void start(Stage stage) {
 
         try {
+            loadLanguage();
             Database.initialize();
         } catch (Exception e) {
             showError("データベースを初期化できませんでした。", e);
@@ -502,7 +512,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> dateColumn =
                 new TableColumn<>("購入日");
-        dateColumn.setCellFactory(selectableTextCellFactory());
 
         dateColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -512,7 +521,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> storeColumn =
                 new TableColumn<>("店名");
-        storeColumn.setCellFactory(selectableTextCellFactory());
 
         storeColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -521,7 +529,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<Receipt, String> totalColumn =
                 new TableColumn<>("合計金額");
-        totalColumn.setCellFactory(selectableTextCellFactory());
 
         totalColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -539,6 +546,9 @@ public class ReceiptApp extends Application {
                     }
                 });
 
+        dateColumn.setCellFactory(selectableTextCellFactory());
+        storeColumn.setCellFactory(selectableTextCellFactory());
+        totalColumn.setCellFactory(selectableTextCellFactory());
 
         receiptTable.getColumns().addAll(
                 dateColumn,
@@ -600,7 +610,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> itemNameColumn =
                 new TableColumn<>("商品名");
-        itemNameColumn.setCellFactory(selectableTextCellFactory());
 
         itemNameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -609,7 +618,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> quantityColumn =
                 new TableColumn<>("数量");
-        quantityColumn.setCellFactory(selectableTextCellFactory());
 
         quantityColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -620,7 +628,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> unitPriceColumn =
                 new TableColumn<>("単価");
-        unitPriceColumn.setCellFactory(selectableTextCellFactory());
 
         unitPriceColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -631,7 +638,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> subtotalColumn =
                 new TableColumn<>("小計");
-        subtotalColumn.setCellFactory(selectableTextCellFactory());
 
 
         subtotalColumn.setCellValueFactory(cell ->
@@ -643,7 +649,6 @@ public class ReceiptApp extends Application {
 
         TableColumn<ReceiptItem, String> categoryColumn =
                 new TableColumn<>("カテゴリ");
-        categoryColumn.setCellFactory(selectableTextCellFactory());
 
         categoryColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -651,6 +656,12 @@ public class ReceiptApp extends Application {
                                 ? "未分類"
                                 : cell.getValue().getCategoryName()
                 ));
+
+        itemNameColumn.setCellFactory(selectableTextCellFactory());
+        quantityColumn.setCellFactory(selectableTextCellFactory());
+        unitPriceColumn.setCellFactory(selectableTextCellFactory());
+        subtotalColumn.setCellFactory(selectableTextCellFactory());
+        categoryColumn.setCellFactory(selectableTextCellFactory());
 
         itemTable.getColumns().addAll(
                 itemNameColumn,
@@ -716,9 +727,9 @@ public class ReceiptApp extends Application {
 
         itemForm.setPadding(new Insets(5));
 
-        VBox root = new VBox(
+        // レシート一覧側の領域
+        VBox receiptListArea = new VBox(
                 8,
-                new Label("レシート管理アプリ"),
                 receiptTitle,
                 receiptForm,
                 receiptTable,
@@ -727,14 +738,77 @@ public class ReceiptApp extends Application {
                 productFilterForm,
                 extraSearchConditionsBox,
                 categoryForm,
-                deleteReceiptButton,
-                new Separator(),
+                deleteReceiptButton
+        );
+
+        // レシート一覧の列幅を個別に変更できるようにする
+        receiptTable.setColumnResizePolicy(
+                TableView.UNCONSTRAINED_RESIZE_POLICY
+        );
+
+// 商品一覧の列幅を個別に変更できるようにする
+        itemTable.setColumnResizePolicy(
+                TableView.UNCONSTRAINED_RESIZE_POLICY
+        );
+
+        // レシート一覧の列幅を復元する
+        restoreTableColumnWidths(receiptTable, "table.receipt");
+
+// 商品一覧の列幅を復元する
+        restoreTableColumnWidths(itemTable, "table.item");
+
+// 商品一覧側の領域
+        VBox itemListArea = new VBox(
+                8,
                 detailTitle,
                 itemForm,
                 itemTable,
-                deleteItemButton,
+                deleteItemButton
+        );
+
+// レシート一覧のテーブルを縦方向に伸縮させる
+        VBox.setVgrow(receiptTable, Priority.ALWAYS);
+
+// 商品一覧のテーブルを縦方向に伸縮させる
+        VBox.setVgrow(itemTable, Priority.ALWAYS);
+
+// 2つの領域を分割する
+        SplitPane listSplitPane = new SplitPane();
+
+// 上下に分割する
+        listSplitPane.setOrientation(Orientation.VERTICAL);
+
+// 上側にレシート一覧、下側に商品一覧を配置する
+        listSplitPane.getItems().addAll(
+                receiptListArea,
+                itemListArea
+        );
+
+// 前回終了時の仕切り位置を復元する
+        restoreSplitPaneDivider(
+                listSplitPane,
+                "layout.listDivider",
+                0.6
+        );
+
+// SplitPane自体も画面の空きスペースに合わせて伸縮させる
+        VBox.setVgrow(listSplitPane, Priority.ALWAYS);
+
+// メイン画面
+        VBox root = new VBox(
+                8,
+                new Label("レシート管理アプリ"),
+                listSplitPane,
                 statusLabel
         );
+
+        // メイン画面の入力欄を管理する一覧
+        Map<String, javafx.scene.Node> mainScreenSections =
+                new LinkedHashMap<>();
+
+        mainScreenSections.put("レシート入力欄", receiptForm);
+        mainScreenSections.put("商品入力欄", itemForm);
+        mainScreenSections.put("タグ入力欄", categoryForm);
 
         root.setPadding(new Insets(12));
 
@@ -742,7 +816,114 @@ public class ReceiptApp extends Application {
         VBox.setVgrow(itemTable, Priority.ALWAYS);
 
         stage.setTitle("レシート管理アプリ");
-        stage.setScene(new Scene(root, 1050, 780));
+
+        // 上部操作バー
+        ToolBar operationBar = new ToolBar();
+        javafx.scene.layout.BorderPane windowLayout =
+                new javafx.scene.layout.BorderPane();
+        operationBar.setOrientation(
+                javafx.geometry.Orientation.HORIZONTAL
+        );
+
+        Button addButton =
+                new Button(tr("toolbar.add"));
+
+        Button editButton =
+                new Button(tr("toolbar.edit"));
+
+        Button deleteButton =
+                new Button(tr("toolbar.delete"));
+
+        Button settingsButton =
+                new Button(tr("toolbar.settings"));
+
+        // メイン画面のボタンを管理する一覧
+        Map<String, Button> mainScreenButtons =
+                new LinkedHashMap<>();
+
+        mainScreenButtons.put("レシート登録", addReceiptButton);
+        mainScreenButtons.put("レシート編集", editReceiptButton);
+        mainScreenButtons.put("レシート削除", deleteReceiptButton);
+
+        mainScreenButtons.put("商品追加", addItemButton);
+        mainScreenButtons.put("商品編集", editItemButton);
+        mainScreenButtons.put("商品削除", deleteItemButton);
+
+        mainScreenButtons.put("検索", searchButton);
+        mainScreenButtons.put("検索条件追加", addSearchConditionButton);
+        mainScreenButtons.put("検索解除", clearSearchButton);
+        mainScreenButtons.put("商品名検索の表示切替", productOnlyFilterButton);
+        mainScreenButtons.put("支出集計", aggregationButton);
+
+        mainScreenButtons.put("タグ追加", addCategoryButton);
+        mainScreenButtons.put("タグ名変更", renameCategoryButton);
+        mainScreenButtons.put("タグ削除", deleteCategoryButton);
+
+        addButton.setOnAction(event ->
+                openAddWindow(stage, searchCategoryBox, extraSearchConditions)
+        );
+
+        editButton.setOnAction(event ->
+                openEditWindow(
+                        stage,
+                        searchCategoryBox,
+                        extraSearchConditions
+                )
+        );
+
+        deleteButton.setOnAction(event ->
+                openDeleteWindow(
+                        stage,
+                        searchCategoryBox,
+                        extraSearchConditions
+                )
+        );
+
+        settingsButton.setOnAction(event ->
+                openToolbarSettings(
+                        stage,
+                        windowLayout,
+                        operationBar,
+                        mainScreenButtons,
+                        mainScreenSections
+                )
+        );
+
+        operationBar.getItems().addAll(
+                addButton,
+                editButton,
+                deleteButton,
+                settingsButton
+        );
+
+        operationBar.setStyle(
+                "-fx-background-color: #eeeeee;" +
+                        "-fx-padding: 8px;"
+        );
+
+        windowLayout.setTop(operationBar);
+        windowLayout.setCenter(root);
+
+        // 保存されている設定を復元
+        restoreUiSettings(
+                windowLayout,
+                operationBar,
+                mainScreenButtons,
+                mainScreenSections
+        );
+
+// Sceneを作成
+        Scene scene = new Scene(windowLayout, 1050, 780);
+
+// ウィンドウにSceneを設定
+        stage.setTitle(tr("app.title"));
+        stage.setScene(scene);
+        stage.show();
+
+        refreshReceipts();
+        loadCategories();
+
+        stage.setScene(scene);
         stage.show();
 
         refreshReceipts();
@@ -1483,9 +1664,6 @@ public class ReceiptApp extends Application {
                 groupColumn,
                 amountColumn
         );
-        periodColumn.setCellFactory(selectableTextCellFactory());
-        groupColumn.setCellFactory(selectableTextCellFactory());
-        amountColumn.setCellFactory(selectableTextCellFactory());
 
         table.setColumnResizePolicy(
                 TableView.CONSTRAINED_RESIZE_POLICY);
@@ -1662,18 +1840,150 @@ public class ReceiptApp extends Application {
 
             private final TextField textField = new TextField();
 
-            {
-                // 文字の編集は禁止する
-                textField.setEditable(false);
+            private boolean textSelectionGesture = false;
 
-                // セル内の幅に合わせる
+            // ドラッグ開始位置
+            private int dragAnchorIndex = 0;
+
+            // ドラッグが開始されたか
+            private boolean textDragStarted = false;
+
+            private boolean dragLogPrinted = false;
+
+            private int getTextIndex(
+                    javafx.scene.input.MouseEvent event) {
+
+                if (textField.getSkin() instanceof
+                        javafx.scene.control.skin.TextFieldSkin skin) {
+
+                    javafx.geometry.Point2D point =
+                            textField.sceneToLocal(
+                                    event.getSceneX(),
+                                    event.getSceneY()
+                            );
+
+                    javafx.scene.text.HitInfo hit =
+                            skin.getIndex(
+                                    point.getX(),
+                                    point.getY()
+                            );
+
+                    return Math.max(
+                            0,
+                            Math.min(
+                                    textField.getText().length(),
+                                    hit.getInsertionIndex()
+                            )
+                    );
+                }
+
+                return textField.getCaretPosition();
+            }
+
+            {
+                textField.setEditable(false);
+                textField.setFocusTraversable(true);
                 textField.setMaxWidth(Double.MAX_VALUE);
 
-                // 背景と枠線を透明にする
+                // TextFieldが常にマウス操作を受け取る
+                textField.setMouseTransparent(false);
+
                 textField.setStyle(
                         "-fx-background-color: transparent;" +
+                                "-fx-control-inner-background: transparent;" +
                                 "-fx-border-color: transparent;" +
-                                "-fx-padding: 0 3 0 3;"
+                                "-fx-background-insets: 0;" +
+                                "-fx-padding: 0 3 0 3;" +
+                                "-fx-text-fill: #202020;" +
+                                "-fx-font-size: 12px;"
+                );
+
+                // マウスボタンを押したとき
+                textField.addEventFilter(
+                        javafx.scene.input.MouseEvent.MOUSE_PRESSED,
+                        event -> {
+
+                            if (event.getButton() !=
+                                    javafx.scene.input.MouseButton.PRIMARY) {
+                                return;
+                            }
+
+                            TableView<S> table = getTableView();
+
+                            if (table != null && !isEmpty()
+                                    && getIndex() >= 0) {
+
+                                table.getSelectionModel().select(getIndex());
+                            }
+
+                            if (event.isShiftDown()) {
+
+                                textSelectionGesture = true;
+                                textDragStarted = false;
+
+                                // ドラッグ開始位置を記録
+                                dragAnchorIndex = getTextIndex(event);
+
+                                textField.requestFocus();
+
+                                // Shift＋クリックの標準動作を維持する
+                            } else {
+
+                                textSelectionGesture = false;
+                                textDragStarted = false;
+
+                                if (table != null) {
+                                    table.requestFocus();
+                                }
+
+                                event.consume();
+                            }
+                        }
+                );
+
+// マウスをドラッグしたとき
+                textField.addEventFilter(
+                        javafx.scene.input.MouseEvent.MOUSE_DRAGGED,
+                        event -> {
+
+                            if (textSelectionGesture) {
+
+                                textDragStarted = true;
+
+                                // 現在のマウス位置を取得
+                                int currentIndex = getTextIndex(event);
+
+                                // 開始位置から現在位置まで選択
+                                textField.selectRange(
+                                        dragAnchorIndex,
+                                        currentIndex
+                                );
+                            }
+
+                            event.consume();
+                        }
+                );
+
+// マウスボタンを離したとき
+                textField.addEventFilter(
+                        javafx.scene.input.MouseEvent.MOUSE_RELEASED,
+                        event -> {
+
+                            if (textSelectionGesture && textDragStarted) {
+
+                                int currentIndex = getTextIndex(event);
+
+                                textField.selectRange(
+                                        dragAnchorIndex,
+                                        currentIndex
+                                );
+
+                                event.consume();
+                            }
+
+                            textSelectionGesture = false;
+                            textDragStarted = false;
+                        }
                 );
             }
 
@@ -1686,10 +1996,2755 @@ public class ReceiptApp extends Application {
                     setGraphic(null);
                 } else {
                     textField.setText(item);
-                    setText(null);
                     setGraphic(textField);
+                    setText(null);
                 }
             }
         };
+    }
+
+    // ==============================
+// 追加ウィンドウ
+// ==============================
+
+    private void openAddWindow(
+            Stage owner,
+            ComboBox<String> searchCategoryBox,
+            List<SearchConditionRow> extraSearchConditions) {
+
+        Stage addStage = new Stage();
+
+        addStage.initOwner(owner);
+        addStage.initModality(
+                javafx.stage.Modality.WINDOW_MODAL
+        );
+
+        addStage.setTitle("追加");
+
+
+        // ==============================
+        // タブの準備
+        // ==============================
+
+        TabPane tabPane = new TabPane();
+
+
+        // ==============================
+        // レシート一覧（商品追加用）
+        // ==============================
+
+        ObservableList<Receipt> receiptChoices =
+                FXCollections.observableArrayList();
+
+        ListView<Receipt> receiptChoiceList =
+                new ListView<>(receiptChoices);
+
+        receiptChoiceList.setPrefWidth(270);
+        receiptChoiceList.setPrefHeight(280);
+        receiptChoiceList.setPlaceholder(
+                new Label("レシートがありません")
+        );
+
+        // レシートの表示内容
+        receiptChoiceList.setCellFactory(listView ->
+                new ListCell<Receipt>() {
+
+                    @Override
+                    protected void updateItem(
+                            Receipt receipt,
+                            boolean empty) {
+
+                        super.updateItem(receipt, empty);
+
+                        if (empty || receipt == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    receipt.getPurchaseDate()
+                                            + "  "
+                                            + receipt.getStoreName()
+                                            + "\n"
+                                            + yenFormat.format(
+                                            receipt.getTotalYen()
+                                    )
+                                            + " 円"
+                            );
+                        }
+                    }
+                }
+        );
+
+        // レシート一覧をデータベースから更新
+        Runnable refreshReceiptChoices = () -> {
+
+            int previousId = -1;
+
+            Receipt previous =
+                    receiptChoiceList.getSelectionModel()
+                            .getSelectedItem();
+
+            if (previous != null) {
+                previousId = previous.getId();
+            }
+
+            try {
+                receiptChoices.setAll(repository.findAll());
+
+                boolean restored = false;
+
+                for (Receipt receipt : receiptChoices) {
+
+                    if (receipt.getId() == previousId) {
+                        receiptChoiceList.getSelectionModel()
+                                .select(receipt);
+
+                        restored = true;
+                        break;
+                    }
+                }
+
+                if (!restored && !receiptChoices.isEmpty()) {
+                    receiptChoiceList.getSelectionModel()
+                            .selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(
+                        "追加先レシートを読み込めませんでした。",
+                        e
+                );
+            }
+        };
+
+        refreshReceiptChoices.run();
+
+
+        // ==============================
+        // ① レシート追加タブ
+        // ==============================
+
+        DatePicker newReceiptDate =
+                new DatePicker(LocalDate.now());
+
+        TextField newReceiptStore =
+                new TextField();
+
+        newReceiptStore.setPromptText("店名");
+        newReceiptStore.setPrefWidth(250);
+
+        Button saveReceiptButton =
+                new Button("レシートを追加");
+
+        saveReceiptButton.setOnAction(event -> {
+
+            LocalDate date = newReceiptDate.getValue();
+
+            String store =
+                    newReceiptStore.getText().trim();
+
+            if (date == null) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "購入日を入力してください。"
+                );
+                return;
+            }
+
+            if (store.isEmpty()) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "店名を入力してください。"
+                );
+                return;
+            }
+
+            try {
+
+                repository.add(date, store, 0);
+
+                refreshReceipts();
+                refreshReceiptChoices.run();
+
+                newReceiptStore.clear();
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.INFORMATION,
+                        "レシートを追加しました。"
+                );
+
+            } catch (Exception e) {
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.ERROR,
+                        "レシートの追加に失敗しました。\n"
+                                + e.getMessage()
+                );
+            }
+        });
+
+        VBox receiptTabContent = new VBox(
+                12,
+                new Label("購入日"),
+                newReceiptDate,
+                new Label("店名"),
+                newReceiptStore,
+                saveReceiptButton
+        );
+
+        receiptTabContent.setPadding(
+                new Insets(20)
+        );
+
+        Tab receiptTab = new Tab(
+                "レシート",
+                receiptTabContent
+        );
+
+        receiptTab.setClosable(false);
+
+
+        // ==============================
+        // ② 商品追加タブ
+        // ==============================
+
+        TextField newItemName = new TextField();
+        newItemName.setPromptText("商品名");
+
+        TextField newQuantity = new TextField();
+        newQuantity.setPromptText("数量");
+
+        TextField newUnitPrice = new TextField();
+        newUnitPrice.setPromptText("単価（円）");
+
+        ComboBox<String> newCategory =
+                new ComboBox<>();
+
+        newCategory.setPromptText("カテゴリ");
+        newCategory.setMaxWidth(Double.MAX_VALUE);
+
+        // カテゴリ一覧を読み込む
+        try {
+            newCategory.getItems().setAll(
+                    repository.findAllCategories()
+            );
+
+            if (!newCategory.getItems().isEmpty()) {
+                newCategory.getSelectionModel().selectFirst();
+            }
+
+        } catch (Exception e) {
+            showError("カテゴリを読み込めませんでした。", e);
+        }
+
+
+        // 商品入力フォーム
+        Button saveItemButton =
+                new Button("商品を追加");
+
+        VBox productForm = new VBox(
+                10,
+                new Label("商品名"),
+                newItemName,
+                new Label("数量"),
+                newQuantity,
+                new Label("単価（円）"),
+                newUnitPrice,
+                new Label("カテゴリ"),
+                newCategory,
+                saveItemButton
+        );
+
+        productForm.setPadding(
+                new Insets(10)
+        );
+
+        productForm.setPrefWidth(390);
+
+
+        // 左側：レシート選択欄
+        VBox receiptSelectPane = new VBox(
+                8,
+                new Label("追加先レシート"),
+                receiptChoiceList
+        );
+
+        receiptSelectPane.setPadding(
+                new Insets(10)
+        );
+
+        receiptSelectPane.setPrefWidth(280);
+        receiptSelectPane.setMinWidth(230);
+
+        VBox.setVgrow(
+                receiptChoiceList,
+                Priority.ALWAYS
+        );
+
+
+        // 左右に配置
+        HBox itemTabContent = new HBox(
+                10,
+                receiptSelectPane,
+                productForm
+        );
+
+        itemTabContent.setPadding(
+                new Insets(10)
+        );
+
+        HBox.setHgrow(
+                productForm,
+                Priority.ALWAYS
+        );
+
+
+        // 商品追加処理
+        saveItemButton.setOnAction(event -> {
+
+            Receipt targetReceipt =
+                    receiptChoiceList.getSelectionModel()
+                            .getSelectedItem();
+
+            if (targetReceipt == null) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "追加先のレシートを選択してください。"
+                );
+                return;
+            }
+
+            String name = newItemName.getText().trim();
+            String quantityText = newQuantity.getText().trim();
+            String priceText = newUnitPrice.getText().trim();
+            String category = newCategory.getValue();
+
+            if (name.isEmpty()) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "language.add.product"
+                );
+                return;
+            }
+
+            if (category == null) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "language.select.category"
+                );
+                return;
+            }
+
+            try {
+
+                double quantity =
+                        Double.parseDouble(quantityText);
+
+                long unitPrice =
+                        Long.parseLong(priceText);
+
+                if (!Double.isFinite(quantity) || quantity <= 0) {
+                    showAddWindowMessage(
+                            addStage,
+                            Alert.AlertType.WARNING,
+                            "language.showEditWindowMessage.isfinite"
+                    );
+                    return;
+                }
+
+                if (unitPrice < 0) {
+                    showAddWindowMessage(
+                            addStage,
+                            Alert.AlertType.WARNING,
+                            "language.showEditWindowMessage.unitprice"
+                    );
+                    return;
+                }
+
+                int targetReceiptId = targetReceipt.getId();
+
+                repository.addItem(
+                        targetReceiptId,
+                        name,
+                        quantity,
+                        unitPrice,
+                        category
+                );
+
+                // 商品明細からレシート合計を再計算
+                repository.updateTotalFromItems(
+                        targetReceiptId
+                );
+
+                // メイン画面を更新
+                refreshReceipts();
+
+                for (Receipt receipt : receipts) {
+
+                    if (receipt.getId() == targetReceiptId) {
+
+                        receiptTable.getSelectionModel()
+                                .select(receipt);
+
+                        break;
+                    }
+                }
+
+                refreshItemsForSelectedReceipt();
+
+                // 左側のレシート一覧も更新
+                refreshReceiptChoices.run();
+
+                newItemName.clear();
+                newQuantity.clear();
+                newUnitPrice.clear();
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.INFORMATION,
+                        "language.added.product"
+                );
+
+            } catch (NumberFormatException e) {
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "language.showeditwindowmessage.numberformatexception"
+                );
+
+            } catch (Exception e) {
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.ERROR,
+                        "language.filedadd.product"
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        Tab itemTab = new Tab(
+                "language.product.tab",
+                itemTabContent
+        );
+
+        itemTab.setClosable(false);
+
+
+        // ==============================
+        // ③ タグ追加タブ
+        // ==============================
+
+        TextField newCategoryName = new TextField();
+
+        newCategoryName.setPromptText("language.add.categoryname");
+        newCategoryName.setPrefWidth(250);
+
+        Button saveCategoryButton =
+                new Button("language.save.category");
+
+        saveCategoryButton.setOnAction(event -> {
+
+            String name =
+                    newCategoryName.getText().trim();
+
+            if (name.isEmpty()) {
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        "language.add.category"
+                );
+                return;
+            }
+
+            try {
+
+                repository.addCategory(name);
+
+                // データベースからカテゴリ一覧を再取得
+                List<String> categories =
+                        repository.findAllCategories();
+
+                // メイン画面のカテゴリ欄を更新
+                loadCategories();
+
+                // 検索用カテゴリ欄も更新
+                searchCategoryBox.getItems().setAll(categories);
+
+                // 既存の追加検索条件のカテゴリ欄も更新
+                for (SearchConditionRow row :
+                        extraSearchConditions) {
+
+                    row.categoryBox.getItems().setAll(categories);
+                }
+
+                // このウィンドウの商品追加用カテゴリ欄も更新
+                newCategory.getItems().setAll(categories);
+                newCategory.setValue(name);
+
+                newCategoryName.clear();
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.INFORMATION,
+                        "language.added.category"
+                );
+
+            } catch (IllegalArgumentException e) {
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.WARNING,
+                        e.getMessage()
+                );
+
+            } catch (Exception e) {
+
+                showAddWindowMessage(
+                        addStage,
+                        Alert.AlertType.ERROR,
+                        "language.filedadd.category"
+                                + e.getMessage()
+                );
+            }
+        });
+
+        VBox categoryTabContent = new VBox(
+                12,
+                new Label("language.categoryname"),
+                newCategoryName,
+                saveCategoryButton
+        );
+
+        categoryTabContent.setPadding(
+                new Insets(20)
+        );
+
+        Tab categoryTab = new Tab(
+                "language.categorytab",
+                categoryTabContent
+        );
+
+        categoryTab.setClosable(false);
+
+
+        // ==============================
+        // ウィンドウを表示
+        // ==============================
+
+        tabPane.getTabs().addAll(
+                receiptTab,
+                itemTab,
+                categoryTab
+        );
+
+        tabPane.setTabClosingPolicy(
+                TabPane.TabClosingPolicy.UNAVAILABLE
+        );
+
+        addStage.setScene(
+                new Scene(tabPane, 760, 430)
+        );
+
+        addStage.show();
+    }
+
+
+    // 追加ウィンドウ内のメッセージ表示
+    private void showAddWindowMessage(
+            Stage owner,
+            Alert.AlertType type,
+            String message) {
+
+        Alert alert = new Alert(type);
+
+        alert.initOwner(owner);
+        alert.setTitle(tr("language.add"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        alert.showAndWait();
+    }
+
+    // ======================================
+// 編集ウィンドウ
+// ======================================
+
+    private void openEditWindow(
+            Stage owner,
+            ComboBox<String> searchCategoryBox,
+            List<SearchConditionRow> extraSearchConditions) {
+
+        Stage editStage = new Stage();
+        editStage.initOwner(owner);
+        editStage.initModality(
+                javafx.stage.Modality.WINDOW_MODAL
+        );
+        editStage.setTitle("language.alert.setTitle.edit");
+
+        TabPane tabPane = new TabPane();
+
+
+        // ======================================
+        // ① レシート編集
+        // ======================================
+
+        ObservableList<Receipt> receiptChoices =
+                FXCollections.observableArrayList();
+
+        ListView<Receipt> receiptList =
+                new ListView<>(receiptChoices);
+
+        receiptList.setPrefWidth(280);
+        receiptList.setPrefHeight(300);
+
+        receiptList.setCellFactory(listView ->
+                new ListCell<Receipt>() {
+
+                    @Override
+                    protected void updateItem(
+                            Receipt receipt,
+                            boolean empty) {
+
+                        super.updateItem(receipt, empty);
+
+                        if (empty || receipt == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    receipt.getPurchaseDate()
+                                            + "  "
+                                            + receipt.getStoreName()
+                                            + "\n"
+                                            + yenFormat.format(
+                                            receipt.getTotalYen()
+                                    )
+                                            + "language.currency"
+                            );
+                        }
+                    }
+                }
+        );
+
+        DatePicker editDatePicker = new DatePicker();
+
+        TextField editStoreField = new TextField();
+        editStoreField.setPromptText("language.shopname");
+
+        receiptList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldReceipt, newReceipt) -> {
+
+                    if (newReceipt != null) {
+                        editDatePicker.setValue(
+                                newReceipt.getPurchaseDate()
+                        );
+
+                        editStoreField.setText(
+                                newReceipt.getStoreName()
+                        );
+                    }
+                });
+
+        // レシート一覧を再読み込み
+        Runnable reloadReceiptList = () -> {
+
+            Receipt previous =
+                    receiptList.getSelectionModel().getSelectedItem();
+
+            int previousId =
+                    previous == null ? -1 : previous.getId();
+
+            try {
+                receiptChoices.setAll(repository.findAll());
+
+                boolean restored = false;
+
+                for (Receipt receipt : receiptChoices) {
+
+                    if (receipt.getId() == previousId) {
+                        receiptList.getSelectionModel()
+                                .select(receipt);
+
+                        restored = true;
+                        break;
+                    }
+                }
+
+                if (!restored && !receiptChoices.isEmpty()) {
+                    receiptList.getSelectionModel().selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(
+                        "language.error.receipt",
+                        e
+                );
+            }
+        };
+
+        Button saveReceiptButton =
+                new Button("language.save.category");
+
+        saveReceiptButton.setOnAction(event -> {
+
+            Receipt selected =
+                    receiptList.getSelectionModel().getSelectedItem();
+
+            if (selected == null) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        "language.select.edit.receipt0"
+                );
+                return;
+            }
+
+            LocalDate date = editDatePicker.getValue();
+            String store = editStoreField.getText().trim();
+
+            if (date == null || store.isEmpty()) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.add.receipt")
+                );
+                return;
+            }
+
+            Alert confirm = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    tr("language.confirm.edit.receipt"),
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            confirm.initOwner(editStage);
+            confirm.setHeaderText(tr("language.confirm.editing.receipt"));
+
+            if (confirm.showAndWait().orElse(ButtonType.NO)
+                    != ButtonType.YES) {
+                return;
+            }
+
+            try {
+                int receiptId = selected.getId();
+
+                repository.updateReceipt(
+                        receiptId,
+                        date,
+                        store
+                );
+
+                // メイン画面を更新
+                refreshReceipts();
+
+                for (Receipt receipt : receipts) {
+                    if (receipt.getId() == receiptId) {
+                        receiptTable.getSelectionModel()
+                                .select(receipt);
+                        break;
+                    }
+                }
+
+                refreshItemsForSelectedReceipt();
+
+                // 編集ウィンドウの一覧も更新
+                reloadReceiptList.run();
+
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.INFORMATION,
+                        "language.updated.receipt"
+                );
+
+            } catch (Exception e) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.ERROR,
+                        tr("language.filedupdate.receipt")
+                                + e.getMessage()
+                );
+            }
+        });
+
+        VBox receiptEditForm = new VBox(
+                12,
+                new Label(tr("language.date")),
+                editDatePicker,
+                new Label(tr("language.shopname")),
+                editStoreField,
+                saveReceiptButton
+        );
+
+        receiptEditForm.setPadding(new Insets(15));
+
+        VBox receiptListPane = new VBox(
+                8,
+                new Label(tr("language.editreceiptbutton")),
+                receiptList
+        );
+
+        receiptListPane.setPadding(new Insets(10));
+
+        VBox.setVgrow(receiptList, Priority.ALWAYS);
+
+        HBox receiptEditContent = new HBox(
+                10,
+                receiptListPane,
+                receiptEditForm
+        );
+
+        receiptEditContent.setPadding(new Insets(10));
+        HBox.setHgrow(receiptEditForm, Priority.ALWAYS);
+
+        reloadReceiptList.run();
+
+        Tab receiptTab = new Tab(
+                tr("language.receipt.tab"),
+                receiptEditContent
+        );
+
+        receiptTab.setClosable(false);
+
+
+        // ======================================
+        // ② 商品編集
+        // ======================================
+
+        // 編集対象レシート一覧
+
+        ObservableList<Receipt> productReceiptChoices =
+                FXCollections.observableArrayList();
+
+        ListView<Receipt> productReceiptList =
+                new ListView<>(productReceiptChoices);
+
+        productReceiptList.setPrefWidth(220);
+
+        productReceiptList.setCellFactory(listView ->
+                new ListCell<Receipt>() {
+
+                    @Override
+                    protected void updateItem(
+                            Receipt receipt,
+                            boolean empty) {
+
+                        super.updateItem(receipt, empty);
+
+                        if (empty || receipt == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    receipt.getPurchaseDate()
+                                            + "\n"
+                                            + receipt.getStoreName()
+                                            + " / "
+                                            + yenFormat.format(
+                                            receipt.getTotalYen()
+                                    )
+                                            + tr("language.currency")
+                            );
+                        }
+                    }
+                }
+        );
+
+
+        // 選択レシートの商品一覧
+
+        ObservableList<ReceiptItem> productChoices =
+                FXCollections.observableArrayList();
+
+        ListView<ReceiptItem> productList =
+                new ListView<>(productChoices);
+
+        productList.setPrefWidth(240);
+
+        productList.setCellFactory(listView ->
+                new ListCell<ReceiptItem>() {
+
+                    @Override
+                    protected void updateItem(
+                            ReceiptItem item,
+                            boolean empty) {
+
+                        super.updateItem(item, empty);
+
+                        if (empty || item == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    item.getItemName()
+                                            + tr("language.quantity")
+                                            + item.getQuantity()
+                                            + tr("language.subtotal")
+                                            + yenFormat.format(
+                                            item.getSubtotalYen()
+                                    )
+                                            + tr("language.currency")
+                                            + tr("language.category")
+                                            + (item.getCategoryName() == null
+                                            ? tr("language.uncategorized")
+                                            : item.getCategoryName())
+                            );
+                        }
+                    }
+                }
+        );
+
+
+        // 商品編集用の入力欄
+
+        TextField editItemName = new TextField();
+        editItemName.setPromptText(tr("language.itemname"));
+
+        TextField editQuantity = new TextField();
+        editQuantity.setPromptText(tr("language.quantity0"));
+
+        TextField editUnitPrice = new TextField();
+        editUnitPrice.setPromptText(tr("language.unitprice"));
+
+        ComboBox<String> editCategory = new ComboBox<>();
+        editCategory.setPromptText(tr("language.categorytab"));
+        editCategory.setMaxWidth(Double.MAX_VALUE);
+
+        try {
+            editCategory.getItems().setAll(
+                    repository.findAllCategories()
+            );
+
+        } catch (Exception e) {
+            showError(tr("language.error.category"), e);
+        }
+
+
+        // レシートを選択したときに商品一覧を更新する
+
+        productReceiptList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldReceipt, newReceipt) -> {
+
+                    productChoices.clear();
+                    productList.getSelectionModel().clearSelection();
+
+                    if (newReceipt == null) {
+                        return;
+                    }
+
+                    try {
+                        productChoices.setAll(
+                                repository.findItemsByReceiptId(
+                                        newReceipt.getId()
+                                )
+                        );
+
+                    } catch (Exception e) {
+                        showError(
+                                tr("language.error.product"),
+                                e
+                        );
+                    }
+                });
+
+
+        // 商品を選択したときに編集欄へ反映する
+
+        productList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldItem, newItem) -> {
+
+                    if (newItem != null) {
+
+                        editItemName.setText(
+                                newItem.getItemName()
+                        );
+
+                        editQuantity.setText(
+                                String.valueOf(
+                                        newItem.getQuantity()
+                                )
+                        );
+
+                        editUnitPrice.setText(
+                                String.valueOf(
+                                        newItem.getUnitPriceYen()
+                                )
+                        );
+
+                        editCategory.setValue(
+                                newItem.getCategoryName()
+                        );
+                    }
+                });
+
+
+        // 編集対象レシートを読み込む
+
+        Runnable reloadProductReceiptList = () -> {
+
+            Receipt previous =
+                    productReceiptList.getSelectionModel()
+                            .getSelectedItem();
+
+            int previousId =
+                    previous == null ? -1 : previous.getId();
+
+            try {
+                productReceiptChoices.setAll(
+                        repository.findAll()
+                );
+
+                boolean restored = false;
+
+                for (Receipt receipt : productReceiptChoices) {
+
+                    if (receipt.getId() == previousId) {
+                        productReceiptList.getSelectionModel()
+                                .select(receipt);
+
+                        restored = true;
+                        break;
+                    }
+                }
+
+                if (!restored && !productReceiptChoices.isEmpty()) {
+                    productReceiptList.getSelectionModel()
+                            .selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(
+                        tr("language.error.receipt"),
+                        e
+                );
+            }
+        };
+
+
+        // 商品の保存
+
+        Button saveItemButton =
+                new Button(tr("language.save.category"));
+
+        saveItemButton.setOnAction(event -> {
+
+            Receipt selectedReceipt =
+                    productReceiptList.getSelectionModel()
+                            .getSelectedItem();
+
+            ReceiptItem selectedItem =
+                    productList.getSelectionModel()
+                            .getSelectedItem();
+
+            if (selectedReceipt == null || selectedItem == null) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.edit.receipt0")
+                );
+                return;
+            }
+
+            String name = editItemName.getText().trim();
+            String quantityText = editQuantity.getText().trim();
+            String priceText = editUnitPrice.getText().trim();
+            String category = editCategory.getValue();
+
+            if (name.isEmpty()) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.add.product")
+                );
+                return;
+            }
+
+            if (category == null) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.category")
+                );
+                return;
+            }
+
+            try {
+                double quantity = Double.parseDouble(quantityText);
+                int unitPrice = Integer.parseInt(priceText);
+
+                if (!Double.isFinite(quantity) || quantity <= 0) {
+                    showEditWindowMessage(
+                            editStage,
+                            Alert.AlertType.WARNING,
+                            tr("language.showEditWindowMessage.isfinite")
+                    );
+                    return;
+                }
+
+                if (unitPrice < 0) {
+                    showEditWindowMessage(
+                            editStage,
+                            Alert.AlertType.WARNING,
+                            tr("language.showEditWindowMessage.unitprice")
+                    );
+                    return;
+                }
+
+                int receiptId = selectedReceipt.getId();
+                int itemId = selectedItem.getId();
+
+                repository.updateItem(
+                        itemId,
+                        name,
+                        quantity,
+                        unitPrice,
+                        category
+                );
+
+                // 商品からレシート合計を再計算
+                repository.updateTotalFromItems(receiptId);
+
+                // メイン画面を更新
+                refreshReceipts();
+
+                for (Receipt receipt : receipts) {
+                    if (receipt.getId() == receiptId) {
+                        receiptTable.getSelectionModel()
+                                .select(receipt);
+                        break;
+                    }
+                }
+
+                refreshItemsForSelectedReceipt();
+
+                // 編集ウィンドウ側の一覧も更新
+                reloadProductReceiptList.run();
+
+                // 更新した商品を再選択
+                for (ReceiptItem item : productChoices) {
+                    if (item.getId() == itemId) {
+                        productList.getSelectionModel().select(item);
+                        break;
+                    }
+                }
+
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.updated.product")
+                );
+
+            } catch (NumberFormatException e) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.showeditwindowmessage.numberformatexception")
+                );
+
+            } catch (Exception e) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.ERROR,
+                        tr("language.filedupdate.product")
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        VBox productReceiptPane = new VBox(
+                8,
+                new Label(tr("language.receipt.list")),
+                productReceiptList
+        );
+
+        VBox productListPane = new VBox(
+                8,
+                new Label(tr("language.product.list")),
+                productList
+        );
+
+        VBox productEditForm = new VBox(
+                10,
+                new Label(tr("language.itemname")),
+                editItemName,
+                new Label(tr("language.quantity0")),
+                editQuantity,
+                new Label(tr("language.unitprice")),
+                editUnitPrice,
+                new Label(tr("language.categorytab")),
+                editCategory,
+                saveItemButton
+        );
+
+        productReceiptPane.setPadding(new Insets(8));
+        productListPane.setPadding(new Insets(8));
+        productEditForm.setPadding(new Insets(8));
+
+        VBox.setVgrow(productReceiptList, Priority.ALWAYS);
+        VBox.setVgrow(productList, Priority.ALWAYS);
+
+        HBox productEditContent = new HBox(
+                8,
+                productReceiptPane,
+                productListPane,
+                productEditForm
+        );
+
+        productEditContent.setPadding(new Insets(8));
+
+        HBox.setHgrow(productEditForm, Priority.ALWAYS);
+
+        reloadProductReceiptList.run();
+
+        Tab productTab = new Tab(
+                tr("language.product.tab"),
+                productEditContent
+        );
+
+        productTab.setClosable(false);
+
+
+        // ======================================
+        // ③ タグ編集
+        // ======================================
+
+        ObservableList<String> categoryChoices =
+                FXCollections.observableArrayList();
+
+        ListView<String> categoryList =
+                new ListView<>(categoryChoices);
+
+        categoryList.setPrefWidth(280);
+
+        TextField editCategoryName = new TextField();
+        editCategoryName.setPromptText(tr("language.editcategory"));
+
+        categoryList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldName, newName) -> {
+
+                    if (newName != null) {
+                        editCategoryName.setText(newName);
+                    }
+                });
+
+
+        Runnable reloadCategoryList = () -> {
+
+            String previous =
+                    categoryList.getSelectionModel().getSelectedItem();
+
+            try {
+                categoryChoices.setAll(
+                        repository.findAllCategories()
+                );
+
+                if (previous != null &&
+                        categoryChoices.contains(previous)) {
+
+                    categoryList.getSelectionModel().select(previous);
+
+                } else if (!categoryChoices.isEmpty()) {
+
+                    categoryList.getSelectionModel().selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(tr("language.error.category"), e);
+            }
+        };
+
+
+        Button saveCategoryButton =
+                new Button(tr("language.save.category"));
+
+        saveCategoryButton.setOnAction(event -> {
+
+            String oldName =
+                    categoryList.getSelectionModel().getSelectedItem();
+
+            String newName =
+                    editCategoryName.getText().trim();
+
+            if (oldName == null) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.edit.category")
+                );
+                return;
+            }
+
+            if (newName.isEmpty()) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.write.newname.category")
+                );
+                return;
+            }
+
+            if (oldName.equals(newName)) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.confirm.equals.category")
+                );
+                return;
+            }
+
+            Alert confirm = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    tr("language.confirm.edit.category") + oldName + tr("language.confirm.edit.category0")
+                            + newName + tr("language.confirm.edit.category1"),
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            confirm.initOwner(editStage);
+            confirm.setHeaderText(tr("language.confirm.deleting.category"));
+
+            if (confirm.showAndWait().orElse(ButtonType.NO)
+                    != ButtonType.YES) {
+                return;
+            }
+
+            try {
+                repository.renameCategory(oldName, newName);
+
+                // メイン画面のカテゴリ一覧を更新
+                loadCategories();
+
+                if (categoryBox.getItems().contains(newName)) {
+                    categoryBox.setValue(newName);
+                }
+
+                // 検索用カテゴリ欄を更新
+                String oldSearchValue = searchCategoryBox.getValue();
+
+                searchCategoryBox.getItems().setAll(
+                        repository.findAllCategories()
+                );
+
+                if (oldName.equals(oldSearchValue)) {
+                    searchCategoryBox.setValue(newName);
+                }
+
+                // 追加検索条件のカテゴリ欄を更新
+                List<String> updatedCategories =
+                        repository.findAllCategories();
+
+                for (SearchConditionRow row :
+                        extraSearchConditions) {
+
+                    String oldValue = row.categoryBox.getValue();
+
+                    row.categoryBox.getItems().setAll(
+                            updatedCategories
+                    );
+
+                    if (oldName.equals(oldValue)) {
+                        row.categoryBox.setValue(newName);
+                    }
+                }
+
+                // 商品編集用カテゴリも更新
+                String oldEditValue = editCategory.getValue();
+
+                editCategory.getItems().setAll(
+                        updatedCategories
+                );
+
+                if (oldName.equals(oldEditValue)) {
+                    editCategory.setValue(newName);
+                }
+
+                // タグ一覧を再読み込み
+                categoryChoices.setAll(updatedCategories);
+                categoryList.getSelectionModel().select(newName);
+                editCategoryName.setText(newName);
+
+                // メイン画面の商品明細も更新
+                refreshItemsForSelectedReceipt();
+
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.edited.category")
+                );
+
+            } catch (IllegalArgumentException e) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.WARNING,
+                        e.getMessage()
+                );
+
+            } catch (Exception e) {
+                showEditWindowMessage(
+                        editStage,
+                        Alert.AlertType.ERROR,
+                        tr("language.filededit.category")
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        VBox categoryListPane = new VBox(
+                8,
+                new Label(tr("language.category.list")),
+                categoryList
+        );
+
+        VBox categoryEditForm = new VBox(
+                12,
+                new Label(tr("language.editcategory")),
+                editCategoryName,
+                saveCategoryButton
+        );
+
+        categoryListPane.setPadding(new Insets(10));
+        categoryEditForm.setPadding(new Insets(15));
+
+        VBox.setVgrow(categoryList, Priority.ALWAYS);
+
+        HBox categoryEditContent = new HBox(
+                10,
+                categoryListPane,
+                categoryEditForm
+        );
+
+        categoryEditContent.setPadding(new Insets(10));
+
+
+        reloadCategoryList.run();
+
+        Tab categoryTab = new Tab(
+                tr("language.categorytab"),
+                categoryEditContent
+        );
+
+        categoryTab.setClosable(false);
+
+
+        // ======================================
+        // ウィンドウを表示
+        // ======================================
+
+        tabPane.getTabs().addAll(
+                receiptTab,
+                productTab,
+                categoryTab
+        );
+
+        tabPane.setTabClosingPolicy(
+                TabPane.TabClosingPolicy.UNAVAILABLE
+        );
+
+        editStage.setScene(
+                new Scene(tabPane, 1000, 520)
+        );
+
+        editStage.show();
+    }
+
+
+    // 編集ウィンドウ内のメッセージ表示
+    private void showEditWindowMessage(
+            Stage owner,
+            Alert.AlertType type,
+            String message) {
+
+        Alert alert = new Alert(type);
+
+        alert.initOwner(owner);
+        alert.setTitle(tr("language.alert.setTitle.edit"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        alert.showAndWait();
+    }
+
+    // ======================================
+// 削除ウィンドウ
+// ======================================
+
+    private void openDeleteWindow(
+            Stage owner,
+            ComboBox<String> searchCategoryBox,
+            List<SearchConditionRow> extraSearchConditions) {
+
+        Stage deleteStage = new Stage();
+        deleteStage.initOwner(owner);
+        deleteStage.initModality(
+                javafx.stage.Modality.WINDOW_MODAL
+        );
+        deleteStage.setTitle(tr("language.alert.setTitle.delete"));
+
+        TabPane tabPane = new TabPane();
+
+
+        // ======================================
+        // ① レシート削除
+        // ======================================
+
+        ObservableList<Receipt> receiptChoices =
+                FXCollections.observableArrayList();
+
+        ListView<Receipt> receiptList =
+                new ListView<>(receiptChoices);
+
+        receiptList.setPrefWidth(280);
+        receiptList.setPrefHeight(350);
+
+        receiptList.setCellFactory(listView ->
+                new ListCell<Receipt>() {
+
+                    @Override
+                    protected void updateItem(
+                            Receipt receipt,
+                            boolean empty) {
+
+                        super.updateItem(receipt, empty);
+
+                        if (empty || receipt == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    receipt.getPurchaseDate()
+                                            + "  "
+                                            + receipt.getStoreName()
+                                            + "\n"
+                                            + yenFormat.format(
+                                            receipt.getTotalYen()
+                                    )
+                                            + tr("language.currency")
+                            );
+                        }
+                    }
+                }
+        );
+
+        // レシート一覧を読み込む
+        Runnable reloadReceiptList = () -> {
+
+            Receipt previous =
+                    receiptList.getSelectionModel().getSelectedItem();
+
+            int previousId =
+                    previous == null ? -1 : previous.getId();
+
+            try {
+                receiptChoices.setAll(repository.findAll());
+
+                boolean restored = false;
+
+                for (Receipt receipt : receiptChoices) {
+
+                    if (receipt.getId() == previousId) {
+                        receiptList.getSelectionModel().select(receipt);
+                        restored = true;
+                        break;
+                    }
+                }
+
+                if (!restored && !receiptChoices.isEmpty()) {
+                    receiptList.getSelectionModel().selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(tr("language.error.receipt"), e);
+            }
+        };
+
+
+        Button deleteReceiptButton =
+                new Button(tr("language.delete.receipt"));
+
+        deleteReceiptButton.setOnAction(event -> {
+
+            Receipt selected =
+                    receiptList.getSelectionModel().getSelectedItem();
+
+            if (selected == null) {
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.delete.receipt0")
+                );
+                return;
+            }
+
+            Alert confirm = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    tr("language.confirm.delete.receipt") + selected.getStoreName()
+                            + tr("language.confirm.delete.receipt0"),
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            confirm.initOwner(deleteStage);
+            confirm.setHeaderText(tr("language.confirm.deleting.receipt"));
+
+            if (confirm.showAndWait().orElse(ButtonType.NO)
+                    != ButtonType.YES) {
+                return;
+            }
+
+            try {
+                repository.delete(selected.getId());
+
+                // メイン画面の選択を解除して一覧を更新
+                receiptTable.getSelectionModel().clearSelection();
+                refreshReceipts();
+
+                if (!receipts.isEmpty()) {
+                    receiptTable.getSelectionModel().selectFirst();
+                } else {
+                    refreshItemsForSelectedReceipt();
+                }
+
+                reloadReceiptList.run();
+
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.deleted.receipt")
+                );
+
+            } catch (Exception e) {
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.ERROR,
+                        tr("language.fileddelete.receipt")
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        VBox receiptTabContent = new VBox(
+                10,
+                new Label(tr("language.deletereceiptbutton")),
+                receiptList,
+                deleteReceiptButton
+        );
+
+        receiptTabContent.setPadding(new Insets(12));
+        VBox.setVgrow(receiptList, Priority.ALWAYS);
+
+        reloadReceiptList.run();
+
+        Tab receiptTab = new Tab(
+                tr("language.product.receipt"),
+                receiptTabContent
+        );
+
+        receiptTab.setClosable(false);
+
+
+        // ======================================
+        // ② 商品削除
+        // ======================================
+
+        ObservableList<Receipt> productReceiptChoices =
+                FXCollections.observableArrayList();
+
+        ListView<Receipt> productReceiptList =
+                new ListView<>(productReceiptChoices);
+
+        productReceiptList.setPrefWidth(230);
+
+        productReceiptList.setCellFactory(listView ->
+                new ListCell<Receipt>() {
+
+                    @Override
+                    protected void updateItem(
+                            Receipt receipt,
+                            boolean empty) {
+
+                        super.updateItem(receipt, empty);
+
+                        if (empty || receipt == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    receipt.getPurchaseDate()
+                                            + "\n"
+                                            + receipt.getStoreName()
+                                            + " / "
+                                            + yenFormat.format(
+                                            receipt.getTotalYen()
+                                    )
+                                            + tr("language.currency")
+                            );
+                        }
+                    }
+                }
+        );
+
+
+        // 選択レシートの商品一覧
+
+        ObservableList<ReceiptItem> productChoices =
+                FXCollections.observableArrayList();
+
+        ListView<ReceiptItem> productList =
+                new ListView<>(productChoices);
+
+        productList.setPrefWidth(250);
+
+        productList.setCellFactory(listView ->
+                new ListCell<ReceiptItem>() {
+
+                    @Override
+                    protected void updateItem(
+                            ReceiptItem item,
+                            boolean empty) {
+
+                        super.updateItem(item, empty);
+
+                        if (empty || item == null) {
+                            setText(null);
+                        } else {
+                            setText(
+                                    item.getItemName()
+                                            + tr("language.quantity")
+                                            + item.getQuantity()
+                                            + tr("language.subtotal")
+                                            + yenFormat.format(
+                                            item.getSubtotalYen()
+                                    )
+                                            + tr("language.currency")
+                                            + tr("language.category")
+                                            + (item.getCategoryName() == null
+                                            ? tr("language.uncategorized")
+                                            : item.getCategoryName())
+                            );
+                        }
+                    }
+                }
+        );
+
+
+        // レシートを選択すると商品一覧を更新
+
+        productReceiptList.getSelectionModel()
+                .selectedItemProperty()
+                .addListener((observable, oldReceipt, newReceipt) -> {
+
+                    productChoices.clear();
+                    productList.getSelectionModel().clearSelection();
+
+                    if (newReceipt == null) {
+                        return;
+                    }
+
+                    try {
+                        productChoices.setAll(
+                                repository.findItemsByReceiptId(
+                                        newReceipt.getId()
+                                )
+                        );
+
+                    } catch (Exception e) {
+                        showError(
+                                tr("language.error.product"),
+                                e
+                        );
+                    }
+                });
+
+
+        // レシート一覧を再読み込み
+
+        Runnable reloadProductReceiptList = () -> {
+
+            Receipt previous =
+                    productReceiptList.getSelectionModel()
+                            .getSelectedItem();
+
+            int previousId =
+                    previous == null ? -1 : previous.getId();
+
+            try {
+                productReceiptChoices.setAll(
+                        repository.findAll()
+                );
+
+                boolean restored = false;
+
+                for (Receipt receipt : productReceiptChoices) {
+
+                    if (receipt.getId() == previousId) {
+                        productReceiptList.getSelectionModel()
+                                .select(receipt);
+                        restored = true;
+                        break;
+                    }
+                }
+
+                if (!restored && !productReceiptChoices.isEmpty()) {
+                    productReceiptList.getSelectionModel()
+                            .selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(
+                        tr("language.error.receipt"),
+                        e
+                );
+            }
+        };
+
+
+        Button deleteItemButton =
+                new Button(tr("language.delete.product"));
+
+        deleteItemButton.setOnAction(event -> {
+
+            Receipt selectedReceipt =
+                    productReceiptList.getSelectionModel()
+                            .getSelectedItem();
+
+            ReceiptItem selectedItem =
+                    productList.getSelectionModel()
+                            .getSelectedItem();
+
+            if (selectedReceipt == null || selectedItem == null) {
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.delete.receipt")
+                );
+                return;
+            }
+
+            Alert confirm = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    tr("language.confirm.delete.product") + selectedItem.getItemName()
+                            + tr("language.confirm.delete.alert"),
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            confirm.initOwner(deleteStage);
+            confirm.setHeaderText(tr("language.confirm.deleting.product"));
+
+            if (confirm.showAndWait().orElse(ButtonType.NO)
+                    != ButtonType.YES) {
+                return;
+            }
+
+            try {
+                int receiptId = selectedReceipt.getId();
+
+                // 商品を削除
+                repository.deleteItem(selectedItem.getId());
+
+                // レシート合計を再計算
+                repository.updateTotalFromItems(receiptId);
+
+                // メイン画面のレシート一覧を更新
+                refreshReceipts();
+
+                for (Receipt receipt : receipts) {
+                    if (receipt.getId() == receiptId) {
+                        receiptTable.getSelectionModel()
+                                .select(receipt);
+                        break;
+                    }
+                }
+
+                refreshItemsForSelectedReceipt();
+
+                // 削除ウィンドウの商品一覧も更新
+                productChoices.setAll(
+                        repository.findItemsByReceiptId(receiptId)
+                );
+
+                productList.getSelectionModel().clearSelection();
+
+                // 左側のレシート一覧も更新
+                reloadProductReceiptList.run();
+
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.deleted.product")
+                );
+
+            } catch (Exception e) {
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.ERROR,
+                        tr("languadelete.product")
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        VBox productReceiptPane = new VBox(
+                8,
+                new Label(tr("language.receipt.list")),
+                productReceiptList
+        );
+
+        VBox productListPane = new VBox(
+                8,
+                new Label(tr("language.product.list")),
+                productList
+        );
+
+        VBox productDeletePane = new VBox(
+                12,
+                new Label(tr("language.delete.product")),
+                new Label(tr("language.select.delete.product")),
+                deleteItemButton
+        );
+
+        productReceiptPane.setPadding(new Insets(8));
+        productListPane.setPadding(new Insets(8));
+        productDeletePane.setPadding(new Insets(12));
+
+        VBox.setVgrow(productReceiptList, Priority.ALWAYS);
+        VBox.setVgrow(productList, Priority.ALWAYS);
+
+        HBox productTabContent = new HBox(
+                8,
+                productReceiptPane,
+                productListPane,
+                productDeletePane
+        );
+
+        productTabContent.setPadding(new Insets(8));
+
+        reloadProductReceiptList.run();
+
+        Tab productTab = new Tab(
+                tr("language.product.tab"),
+                productTabContent
+        );
+
+        productTab.setClosable(false);
+
+
+        // ======================================
+        // ③ タグ削除
+        // ======================================
+
+        ObservableList<String> categoryChoices =
+                FXCollections.observableArrayList();
+
+        ListView<String> categoryList =
+                new ListView<>(categoryChoices);
+
+        categoryList.setPrefWidth(280);
+        categoryList.setPrefHeight(350);
+
+
+        Runnable reloadCategoryList = () -> {
+
+            String previous =
+                    categoryList.getSelectionModel().getSelectedItem();
+
+            try {
+                categoryChoices.setAll(
+                        repository.findAllCategories()
+                );
+
+                if (previous != null &&
+                        categoryChoices.contains(previous)) {
+
+                    categoryList.getSelectionModel().select(previous);
+
+                } else if (!categoryChoices.isEmpty()) {
+
+                    categoryList.getSelectionModel().selectFirst();
+                }
+
+            } catch (Exception e) {
+                showError(tr("language.error.category"), e);
+            }
+        };
+
+
+        Button deleteCategoryButton =
+                new Button(tr("language.delete.category"));
+
+        deleteCategoryButton.setOnAction(event -> {
+
+            String selectedCategory =
+                    categoryList.getSelectionModel().getSelectedItem();
+
+            if (selectedCategory == null) {
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.WARNING,
+                        tr("language.select.delete.category")
+                );
+                return;
+            }
+
+            Alert confirm = new Alert(
+                    Alert.AlertType.CONFIRMATION,
+                    tr("language.confirm.delete.category") + selectedCategory + tr("language.confirm.delete.alert"),
+                    ButtonType.YES,
+                    ButtonType.NO
+            );
+
+            confirm.initOwner(deleteStage);
+            confirm.setHeaderText(tr("language.confirm.deleting.category"));
+
+            if (confirm.showAndWait().orElse(ButtonType.NO)
+                    != ButtonType.YES) {
+                return;
+            }
+
+            try {
+                repository.deleteCategory(selectedCategory);
+
+                // メイン画面のカテゴリ一覧を更新
+                loadCategories();
+
+                // 検索用カテゴリ一覧を更新
+                List<String> updatedCategories =
+                        repository.findAllCategories();
+
+                searchCategoryBox.getItems().setAll(
+                        updatedCategories
+                );
+
+                if (selectedCategory.equals(searchCategoryBox.getValue())) {
+                    searchCategoryBox.setValue(null);
+                }
+
+                // 追加検索条件のカテゴリ一覧も更新
+                for (SearchConditionRow row :
+                        extraSearchConditions) {
+
+                    String previous = row.categoryBox.getValue();
+
+                    row.categoryBox.getItems().setAll(
+                            updatedCategories
+                    );
+
+                    if (selectedCategory.equals(previous)) {
+                        row.categoryBox.setValue(null);
+                    }
+                }
+
+                // メイン画面の商品明細を更新
+                refreshItemsForSelectedReceipt();
+
+                // 削除ウィンドウのタグ一覧を更新
+                reloadCategoryList.run();
+
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.INFORMATION,
+                        tr("language.deleted.category")
+                );
+
+            } catch (IllegalArgumentException e) {
+
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.WARNING,
+                        e.getMessage()
+                );
+
+            } catch (Exception e) {
+
+                showDeleteWindowMessage(
+                        deleteStage,
+                        Alert.AlertType.ERROR,
+                        tr("language.fileddelete.category")
+                                + e.getMessage()
+                );
+            }
+        });
+
+
+        VBox categoryTabContent = new VBox(
+                10,
+                new Label(tr("language.deletecategorybutton")),
+                categoryList,
+                deleteCategoryButton
+        );
+
+        categoryTabContent.setPadding(new Insets(12));
+        VBox.setVgrow(categoryList, Priority.ALWAYS);
+
+        reloadCategoryList.run();
+
+        Tab categoryTab = new Tab(
+                tr("language.categorytab"),
+                categoryTabContent
+        );
+
+        categoryTab.setClosable(false);
+
+
+        // ======================================
+        // ウィンドウを表示
+        // ======================================
+
+        tabPane.getTabs().addAll(
+                receiptTab,
+                productTab,
+                categoryTab
+        );
+
+        tabPane.setTabClosingPolicy(
+                TabPane.TabClosingPolicy.UNAVAILABLE
+        );
+
+        deleteStage.setScene(
+                new Scene(tabPane, 950, 500)
+        );
+
+        deleteStage.show();
+    }
+
+
+    // 削除ウィンドウ内のメッセージ表示
+    private void showDeleteWindowMessage(
+            Stage owner,
+            Alert.AlertType type,
+            String message) {
+
+        Alert alert = new Alert(type);
+
+        alert.initOwner(owner);
+        alert.setTitle(tr("language.alert.setTitle"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+
+        alert.showAndWait();
+    }
+
+    // ==============================
+// 操作バーの位置を変更
+// ==============================
+
+    // ==============================
+// 操作バーの位置を変更
+// ==============================
+
+    // ==============================
+// 操作バーの位置を変更
+// ==============================
+
+    // ==============================
+// 操作バーの位置を変更
+// ==============================
+
+    private void restoreUiSettings(
+            BorderPane layout,
+            ToolBar bar,
+            Map<String, Button> mainScreenButtons,
+            Map<String, javafx.scene.Node> mainScreenSections) {
+
+        // 保存されている操作バーの位置を取得
+        String savedPosition =
+                uiPreferences.get("toolbar.position", "上");
+
+        // 不正な値なら上に戻す
+        if (!savedPosition.equals("上")
+                && !savedPosition.equals("下")
+                && !savedPosition.equals("左")
+                && !savedPosition.equals("右")) {
+
+            savedPosition = "上";
+        }
+
+        // 操作バーの位置を復元
+        setToolbarPosition(layout, bar, savedPosition);
+
+        // ボタンの表示状態を復元
+        for (Map.Entry<String, Button> entry :
+                mainScreenButtons.entrySet()) {
+
+            String buttonName = entry.getKey();
+            Button button = entry.getValue();
+
+            boolean visible = uiPreferences.getBoolean(
+                    "button.visible." + buttonName,
+                    true
+            );
+
+            button.setVisible(visible);
+            button.setManaged(visible);
+        }
+
+        // 入力欄の表示状態を復元
+        for (Map.Entry<String, javafx.scene.Node> entry :
+                mainScreenSections.entrySet()) {
+
+            String sectionName = entry.getKey();
+            javafx.scene.Node section = entry.getValue();
+
+            boolean visible = uiPreferences.getBoolean(
+                    "section.visible." + sectionName,
+                    true
+            );
+
+            section.setVisible(visible);
+            section.setManaged(visible);
+        }
+    }
+
+    private void setToolbarPosition(
+            BorderPane layout,
+            ToolBar bar,
+            String position) {
+
+        // 現在の配置から操作バーを外す
+        if (layout.getTop() == bar) {
+            layout.setTop(null);
+        }
+
+        if (layout.getBottom() == bar) {
+            layout.setBottom(null);
+        }
+
+        if (layout.getLeft() == bar) {
+            layout.setLeft(null);
+        }
+
+        if (layout.getRight() == bar) {
+            layout.setRight(null);
+        }
+
+        // 左右なら縦向き、上下なら横向き
+        if ("左".equals(position) || "右".equals(position)) {
+
+            bar.setOrientation(
+                    javafx.geometry.Orientation.VERTICAL
+            );
+
+        } else {
+
+            bar.setOrientation(
+                    javafx.geometry.Orientation.HORIZONTAL
+            );
+        }
+
+        // 選択された位置に配置
+        switch (position) {
+
+            case "左" ->
+                    layout.setLeft(bar);
+
+            case "右" ->
+                    layout.setRight(bar);
+
+            case "下" ->
+                    layout.setBottom(bar);
+
+            default ->
+                    layout.setTop(bar);
+        }
+
+        // 操作バーの位置を保存
+        saveUiSetting("toolbar.position", position);
+    }
+
+    private String getToolbarPosition(
+            BorderPane layout,
+            ToolBar bar) {
+
+        if (layout.getLeft() == bar) {
+            return "左";
+        }
+
+        if (layout.getRight() == bar) {
+            return "右";
+        }
+
+        if (layout.getBottom() == bar) {
+            return "下";
+        }
+
+        return "上";
+    }
+
+    // ==============================
+// 操作バー設定ウィンドウ
+// ==============================
+
+    private void openToolbarSettings(
+            Stage owner,
+            BorderPane layout,
+            ToolBar bar,
+            Map<String, Button> mainScreenButtons,
+            Map<String, javafx.scene.Node> mainScreenSections) {
+
+        Stage settingsStage = new Stage();
+
+        // ==============================
+// 言語選択
+// ==============================
+
+        Label languageLabel =
+                new Label(tr("settings.language"));
+
+        ComboBox<String> languageBox =
+                new ComboBox<>();
+
+        languageBox.getItems().addAll(
+                tr("language.japanese"),
+                tr("language.english")
+        );
+
+// 現在の言語を選択
+        if ("en".equals(currentLocale.getLanguage())) {
+
+            languageBox.setValue(
+                    tr("language.english")
+            );
+
+        } else {
+
+            languageBox.setValue(
+                    tr("language.japanese")
+            );
+        }
+
+// 言語変更
+        languageBox.setOnAction(event -> {
+
+            String selectedLanguage =
+                    languageBox.getValue();
+
+            String languageCode =
+                    selectedLanguage.equals(
+                            tr("language.english")
+                    ) ? "en" : "ja";
+
+            // 変更がない場合は何もしない
+            if (languageCode.equals(
+                    currentLocale.getLanguage())) {
+                return;
+            }
+
+            // 言語を保存
+            saveUiSetting("language", languageCode);
+
+            // 再起動を案内
+            Alert alert = new Alert(
+                    Alert.AlertType.INFORMATION
+            );
+
+            alert.initOwner(settingsStage);
+
+            alert.setTitle(
+                    tr("language.restart.title")
+            );
+
+            alert.setHeaderText(null);
+
+            alert.setContentText(
+                    tr("language.restart.message")
+            );
+
+            alert.showAndWait();
+        });
+
+        settingsStage.initOwner(owner);
+
+        settingsStage.initModality(
+                javafx.stage.Modality.WINDOW_MODAL
+        );
+
+        settingsStage.setTitle("settings.title");
+
+        // 位置選択
+        Label positionLabel =
+                new Label(tr("settings.toolbar.position"));
+
+        ToggleGroup positionGroup =
+                new ToggleGroup();
+
+        RadioButton leftButton =
+                new RadioButton(tr("position.left"));
+
+        RadioButton rightButton =
+                new RadioButton(tr("position.right"));
+
+        RadioButton topButton =
+                new RadioButton(tr("position.top"));
+
+        RadioButton bottomButton =
+                new RadioButton(tr("position.bottom"));
+
+        leftButton.setToggleGroup(positionGroup);
+        rightButton.setToggleGroup(positionGroup);
+        topButton.setToggleGroup(positionGroup);
+        bottomButton.setToggleGroup(positionGroup);
+
+        // 現在の位置を取得して選択状態にする
+        String currentPosition =
+                getToolbarPosition(layout, bar);
+
+        switch (currentPosition) {
+
+            case "左" ->
+                    leftButton.setSelected(true);
+
+            case "右" ->
+                    rightButton.setSelected(true);
+
+            case "下" ->
+                    bottomButton.setSelected(true);
+
+            default ->
+                    topButton.setSelected(true);
+        }
+
+        // 位置を変更する処理
+        leftButton.setOnAction(event ->
+                setToolbarPosition(layout, bar, "左")
+        );
+
+        rightButton.setOnAction(event ->
+                setToolbarPosition(layout, bar, "右")
+        );
+
+        topButton.setOnAction(event ->
+                setToolbarPosition(layout, bar, "上")
+        );
+
+        bottomButton.setOnAction(event ->
+                setToolbarPosition(layout, bar, "下")
+        );
+
+        HBox positionButtons = new HBox(
+                15,
+                leftButton,
+                rightButton,
+                topButton,
+                bottomButton
+        );
+
+        // ==============================
+// メイン画面のボタン表示設定
+// ==============================
+
+        Label buttonVisibilityLabel =
+                new Label(tr("settings.button.visibility"));
+
+        VBox buttonVisibilityBox = new VBox(8);
+
+// 登録されているボタンごとにチェックボックスを作成
+        for (Map.Entry<String, Button> entry :
+                mainScreenButtons.entrySet()) {
+
+            String buttonName = entry.getKey();
+            Button targetButton = entry.getValue();
+
+            CheckBox checkBox = new CheckBox(buttonName);
+
+            // 現在の表示状態を反映
+            checkBox.setSelected(targetButton.isVisible());
+
+            // チェック状態が変更されたとき
+            checkBox.setOnAction(event -> {
+
+                boolean visible = checkBox.isSelected();
+
+                targetButton.setVisible(visible);
+                targetButton.setManaged(visible);
+
+                // 表示状態を保存
+                saveUiSetting(
+                        "button.visible." + buttonName,
+                        visible
+                );
+            });
+
+            buttonVisibilityBox.getChildren().add(checkBox);
+        }
+
+// ボタンが増えてもスクロールできるようにする
+        ScrollPane buttonScrollPane =
+                new ScrollPane(buttonVisibilityBox);
+
+        // ==============================
+// メイン画面の入力欄表示設定
+// ==============================
+
+        Label sectionVisibilityLabel =
+                new Label(tr("settings.section.visibility"));
+
+        VBox sectionVisibilityBox = new VBox(8);
+
+// 入力欄ごとにチェックボックスを作成
+        for (Map.Entry<String, javafx.scene.Node> entry :
+                mainScreenSections.entrySet()) {
+
+            String sectionName = entry.getKey();
+
+            javafx.scene.Node targetSection =
+                    entry.getValue();
+
+            CheckBox checkBox =
+                    new CheckBox(sectionName);
+
+            // 現在の表示状態を反映
+            checkBox.setSelected(
+                    targetSection.isVisible()
+            );
+
+            // チェック状態が変更されたとき
+            checkBox.setOnAction(event -> {
+
+                boolean visible = checkBox.isSelected();
+
+                targetSection.setVisible(visible);
+                targetSection.setManaged(visible);
+
+                // 入力欄の表示状態を保存
+                saveUiSetting(
+                        "section.visible." + sectionName,
+                        visible
+                );
+            });
+
+            sectionVisibilityBox.getChildren().add(checkBox);
+        }
+
+// スクロールできるようにする
+        ScrollPane sectionScrollPane =
+                new ScrollPane(sectionVisibilityBox);
+
+        sectionScrollPane.setFitToWidth(true);
+        sectionScrollPane.setPrefViewportHeight(120);
+
+        buttonScrollPane.setFitToWidth(true);
+        buttonScrollPane.setPrefViewportHeight(260);
+
+        VBox content = new VBox(
+                15,
+
+                // 言語設定
+                languageLabel,
+                languageBox,
+
+                new Separator(),
+
+                // 操作バーの位置
+                positionLabel,
+                positionButtons,
+
+                new Separator(),
+
+                // ボタンの表示設定
+                buttonVisibilityLabel,
+                buttonScrollPane,
+
+                new Separator(),
+
+                // 入力欄の表示設定
+                sectionVisibilityLabel,
+                sectionScrollPane
+        );
+
+        content.setPadding(new Insets(15));
+
+        content.setPadding(
+                new Insets(20)
+        );
+
+        settingsStage.setScene(
+                new Scene(content, 460, 650)
+        );
+
+        settingsStage.show();
+    }
+
+    // ==============================
+// 設定保存
+// ==============================
+
+    private void saveUiSetting(String key, String value) {
+
+        uiPreferences.put(key, value);
+
+        try {
+            uiPreferences.flush();
+        } catch (BackingStoreException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveUiSetting(String key, boolean value) {
+
+        uiPreferences.putBoolean(key, value);
+
+        try {
+            uiPreferences.flush();
+        } catch (BackingStoreException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // SplitPaneの仕切り位置を復元し、変更時に保存する
+    private void restoreSplitPaneDivider(
+            SplitPane splitPane,
+            String preferenceKey,
+            double defaultPosition
+    ) {
+        double savedPosition = defaultPosition;
+
+        String savedValue = uiPreferences.get(
+                preferenceKey,
+                Double.toString(defaultPosition)
+        );
+
+        try {
+            savedPosition = Double.parseDouble(savedValue);
+        } catch (NumberFormatException e) {
+            savedPosition = defaultPosition;
+        }
+
+        // 仕切りが端に寄りすぎないようにする
+        savedPosition = Math.max(0.05, Math.min(0.95, savedPosition));
+
+        // 保存されていた位置を復元する
+        splitPane.setDividerPositions(savedPosition);
+
+        // 仕切りを動かしたときに新しい位置を保存する
+        splitPane.getDividers().get(0).positionProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    uiPreferences.put(
+                            preferenceKey,
+                            Double.toString(newValue.doubleValue())
+                    );
+                }
+        );
+    }
+
+
+    // TableViewの列幅を復元し、変更時に保存する
+    private void restoreTableColumnWidths(
+            TableView<?> table,
+            String preferencePrefix
+    ) {
+        for (int i = 0; i < table.getColumns().size(); i++) {
+
+            TableColumn<?, ?> column = table.getColumns().get(i);
+
+            // 列番号を使って保存先を区別する
+            String preferenceKey = preferencePrefix + "." + i;
+
+            // 保存されている列幅を取得する
+            String savedWidth = uiPreferences.get(preferenceKey, "");
+
+            if (!savedWidth.isEmpty()) {
+                try {
+                    double width = Double.parseDouble(savedWidth);
+
+                    if (width >= 30 && width <= 3000) {
+                        column.setPrefWidth(width);
+                    }
+
+                } catch (NumberFormatException e) {
+                    // 保存値が不正な場合は初期幅を使用する
+                }
+            }
+
+            // 列幅が変更されたら保存する
+            column.widthProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                        double width = newValue.doubleValue();
+
+                        if (width > 0) {
+                            uiPreferences.put(
+                                    preferenceKey,
+                                    Double.toString(width)
+                            );
+                        }
+                    }
+            );
+        }
+    }
+
+    // 翻訳ファイルの基本名
+    private static final String MESSAGE_BASE_NAME =
+            "com.bassstarling.receiptmanager.messages";
+
+    // 現在使用している言語
+    private Locale currentLocale = Locale.JAPANESE;
+
+    // 翻訳データ
+    private ResourceBundle messages;
+
+    // ==============================
+// 言語の読み込み
+// ==============================
+
+    private void loadLanguage() {
+
+        // 保存された言語を取得
+        String language =
+                uiPreferences.get("language", "ja");
+
+        currentLocale = Locale.forLanguageTag(language);
+
+        // 対応していない言語なら日本語に戻す
+        if (!currentLocale.getLanguage().equals("ja")
+                && !currentLocale.getLanguage().equals("en")) {
+
+            currentLocale = Locale.JAPANESE;
+        }
+
+        // 翻訳ファイルを読み込む
+        messages = ResourceBundle.getBundle(
+                MESSAGE_BASE_NAME,
+                currentLocale
+        );
+    }
+
+    // ==============================
+// 翻訳文字列の取得
+// ==============================
+
+    private String tr(String key) {
+
+        try {
+            return messages.getString(key);
+
+        } catch (java.util.MissingResourceException e) {
+
+            // 翻訳キーが存在しない場合
+            System.err.println(
+                    tr("language.cantfind.key") + key
+            );
+
+            return "[" + key + "]";
+        }
+    }
+
+    @Override
+    public void stop() {
+        try {
+            uiPreferences.flush();
+        } catch (BackingStoreException e) {
+            e.printStackTrace();
+        }
     }
 }

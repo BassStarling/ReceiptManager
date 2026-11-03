@@ -28,5 +28,5 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.bassstarling.receiptmanager.ReceiptApp'
+    mainClass = 'com.bassstarling.receiptmanager.Launcher'
 }
