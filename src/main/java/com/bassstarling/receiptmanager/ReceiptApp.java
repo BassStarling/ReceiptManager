@@ -1159,12 +1159,12 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("商品を登録しました。");
+            showMessage("language.added.product0");
 
         } catch (NumberFormatException e) {
-            showMessage("数量は数値、単価は整数で入力してください。");
+            showMessage("language.showeditwindowmessage.numberformatexception");
         } catch (Exception e) {
-            showError("商品の登録に失敗しました。", e);
+            showError("language.filedadd.product0", e);
         }
     }
 
@@ -1175,7 +1175,7 @@ public class ReceiptApp extends Application {
                 itemTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("削除する商品を選択してください。");
+            showMessage("language.select.edititem");
             return;
         }
 
@@ -1208,10 +1208,10 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("商品を削除しました。");
+            showMessage("language.deleted.product");
 
         } catch (Exception e) {
-            showError("商品の削除に失敗しました。", e);
+            showError("language.fileddelete.product0", e);
         }
     }
 
@@ -1223,7 +1223,7 @@ public class ReceiptApp extends Application {
         e.printStackTrace();
 
         Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("エラー");
+        alert.setTitle("language.error");
         alert.setHeaderText(message);
         alert.setContentText(e.getMessage());
         alert.showAndWait();
@@ -1248,15 +1248,15 @@ public class ReceiptApp extends Application {
         final TextField textField = new TextField();
         final DatePicker datePicker = new DatePicker();
         final ComboBox<String> categoryBox = new ComboBox<>();
-        final Button removeButton = new Button("条件を削除");
+        final Button removeButton = new Button("language.delete.howadd");
         final HBox container;
 
         SearchConditionRow(List<String> categories) {
             typeBox.getItems().addAll(
-                    "店舗名", "商品名", "タグ（カテゴリ）", "購入日");
-            typeBox.setValue("店舗名");
+                    "language.shopname", "language.itemname", "language.categorytab", "language.date");
+            typeBox.setValue("language.shopname");
 
-            textField.setPromptText("店舗名を入力");
+            textField.setPromptText("language.write.shopname");
             categoryBox.getItems().setAll(categories);
 
             datePicker.setVisible(false);
@@ -1269,7 +1269,7 @@ public class ReceiptApp extends Application {
 
             container = new HBox(
                     8,
-                    new Label("追加条件"),
+                    new Label("language.howadd"),
                     typeBox,
                     textField,
                     datePicker,
@@ -1284,22 +1284,22 @@ public class ReceiptApp extends Application {
             String type = typeBox.getValue();
 
             boolean textVisible =
-                    "店舗名".equals(type) || "商品名".equals(type);
+                    "language.shopname".equals(type) || "language.itemname".equals(type);
             textField.setVisible(textVisible);
             textField.setManaged(textVisible);
 
-            boolean dateVisible = "購入日".equals(type);
+            boolean dateVisible = "language.date".equals(type);
             datePicker.setVisible(dateVisible);
             datePicker.setManaged(dateVisible);
 
-            boolean categoryVisible = "タグ（カテゴリ）".equals(type);
+            boolean categoryVisible = "language.categorytab".equals(type);
             categoryBox.setVisible(categoryVisible);
             categoryBox.setManaged(categoryVisible);
 
-            if ("店舗名".equals(type)) {
-                textField.setPromptText("店舗名を入力");
-            } else if ("商品名".equals(type)) {
-                textField.setPromptText("商品名を入力");
+            if ("language.shopname".equals(type)) {
+                textField.setPromptText("language.write.shopname");
+            } else if ("language.itemname".equals(type)) {
+                textField.setPromptText("language.write.itemname");
             }
         }
     }
@@ -1308,17 +1308,17 @@ public class ReceiptApp extends Application {
     private String validateSearchCondition(
             String type, String keyword, LocalDate date, String category) {
 
-        if ("店舗名".equals(type) && keyword.isBlank()) {
-            return "店舗名を入力してください。";
+        if ("language.shopname".equals(type) && keyword.isBlank()) {
+            return "language.write.shopname";
         }
-        if ("商品名".equals(type) && keyword.isBlank()) {
-            return "商品名を入力してください。";
+        if ("language.itemname".equals(type) && keyword.isBlank()) {
+            return "language.add.product";
         }
-        if ("タグ（カテゴリ）".equals(type) && category == null) {
-            return "カテゴリを選択してください。";
+        if ("language.categorytab".equals(type) && category == null) {
+            return "language.select.category";
         }
-        if ("購入日".equals(type) && date == null) {
-            return "購入日を選択してください。";
+        if ("language.date".equals(type) && date == null) {
+            return "language.select.date";
         }
         return null;
     }
@@ -1329,20 +1329,20 @@ public class ReceiptApp extends Application {
 
         String type = condition.type();
 
-        if ("店舗名".equals(type)) {
+        if ("language.shopname".equals(type)) {
             return receipt.getStoreName() != null
                     && receipt.getStoreName().toLowerCase(Locale.ROOT)
                     .contains(condition.keyword().toLowerCase(Locale.ROOT));
         }
 
-        if ("購入日".equals(type)) {
+        if ("language.date".equals(type)) {
             return condition.date().equals(receipt.getPurchaseDate());
         }
 
         List<ReceiptItem> receiptItems =
                 repository.findItemsByReceiptId(receipt.getId());
 
-        if ("商品名".equals(type)) {
+        if ("language.itemname".equals(type)) {
             String keyword = condition.keyword().toLowerCase(Locale.ROOT);
             for (ReceiptItem item : receiptItems) {
                 if (item.getItemName() != null
@@ -1354,7 +1354,7 @@ public class ReceiptApp extends Application {
             return false;
         }
 
-        if ("タグ（カテゴリ）".equals(type)) {
+        if ("language.categorytab".equals(type)) {
             for (ReceiptItem item : receiptItems) {
                 if (condition.category().equals(item.getCategoryName())) {
                     return true;
@@ -1370,18 +1370,18 @@ public class ReceiptApp extends Application {
         String selectedCategory = categoryBox.getValue();
 
         if (selectedCategory == null || selectedCategory.isBlank()) {
-            showMessage("削除するカテゴリを選択してください。");
+            showMessage("language.select.delete.category");
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "カテゴリ「" + selectedCategory + "」を削除しますか？",
+                "language.confirm.delete.category" + selectedCategory + "language.confirm.delete.alert",
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("カテゴリの削除");
+        confirm.setHeaderText("language.confirm.deleting.category");
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1393,13 +1393,13 @@ public class ReceiptApp extends Application {
 
             loadCategories();
 
-            showMessage("カテゴリを削除しました。");
+            showMessage("language.deleted.category");
 
         } catch (IllegalArgumentException e) {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError("カテゴリの削除に失敗しました。", e);
+            showError("language.fileddelete.category0", e);
         }
     }
 
@@ -1408,29 +1408,29 @@ public class ReceiptApp extends Application {
         String newName = categoryNameField.getText().trim();
 
         if (oldName == null || oldName.isBlank()) {
-            showMessage("変更するカテゴリを選択してください。");
+            showMessage("language.select.edit.category");
             return;
         }
 
         if (newName.isEmpty()) {
-            showMessage("新しいカテゴリ名を入力してください。");
+            showMessage("language.write.newname.category");
             return;
         }
 
         if (oldName.equals(newName)) {
-            showMessage("変更前と変更後のカテゴリ名が同じです。");
+            showMessage("language.editerror.category");
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "カテゴリ名を「" + oldName + "」から「"
-                        + newName + "」に変更しますか？",
+                "language.confirm.edit.category" + oldName + "language.confirm.edit.category0"
+                        + newName + "language.confirm.edit.category1",
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("カテゴリ名の変更");
+        confirm.setHeaderText("language.confirm.editing.category");
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1447,13 +1447,13 @@ public class ReceiptApp extends Application {
 
             categoryNameField.clear();
 
-            showMessage("カテゴリ名を変更しました。");
+            showMessage("language.edited.category");
 
         } catch (IllegalArgumentException e) {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError("カテゴリ名の変更に失敗しました。", e);
+            showError("language.filededit.category", e);
         }
     }
 
@@ -1462,7 +1462,7 @@ public class ReceiptApp extends Application {
                 receiptTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("編集するレシートを選択してください。");
+            showMessage("language.select.edit.receipt0");
             return;
         }
 
@@ -1470,23 +1470,23 @@ public class ReceiptApp extends Application {
         String newStore = storeField.getText().trim();
 
         if (newDate == null) {
-            showMessage("購入日を入力してください。");
+            showMessage("language.write.date");
             return;
         }
 
         if (newStore.isEmpty()) {
-            showMessage("店名を入力してください。");
+            showMessage("language.write.shopname");
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "選択したレシートの購入日と店名を変更しますか？",
+                "language.corfirm.edit.receipt0",
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("レシートの編集");
+        confirm.setHeaderText("language.confirm.editing.receipt");
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1512,10 +1512,10 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("レシートを更新しました。");
+            showMessage("language.updated.receipt");
 
         } catch (Exception e) {
-            showError("レシートの更新に失敗しました。", e);
+            showError("language.filedupdate.receipt", e);
         }
     }
 
@@ -1524,7 +1524,7 @@ public class ReceiptApp extends Application {
                 itemTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("編集する商品を選択してください。");
+            showMessage("language.select.edititem");
             return;
         }
 
@@ -1541,12 +1541,12 @@ public class ReceiptApp extends Application {
         String categoryName = categoryBox.getValue();
 
         if (itemName.isEmpty()) {
-            showMessage("商品名を入力してください。");
+            showMessage("language.editproduct");
             return;
         }
 
         if (categoryName == null || categoryName.isBlank()) {
-            showMessage("カテゴリを選択してください。");
+            showMessage("language.select.category");
             return;
         }
 
@@ -1577,12 +1577,12 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("商品を更新しました。");
+            showMessage("language.updated.product");
 
         } catch (NumberFormatException e) {
-            showMessage("数量と単価は正しい数値で入力してください。");
+            showMessage("language.refreshitemsforselectedreceipt.numberformatexception");
         } catch (Exception e) {
-            showError("商品の更新に失敗しました。", e);
+            showError("language.filedupdate.product0", e);
         }
     }
 
@@ -1615,49 +1615,49 @@ public class ReceiptApp extends Application {
 
     private void showAggregationDialog() {
         Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("支出集計");
+        dialog.setTitle(tr("language.calculation.expenditures"));
 
         dialog.getDialogPane().getButtonTypes()
                 .add(ButtonType.CLOSE);
 
         ComboBox<String> periodBox = new ComboBox<>();
-        periodBox.getItems().addAll("週別", "月別");
-        periodBox.setValue("月別");
+        periodBox.getItems().addAll(tr("language.byweek"), tr("language.bymonth"));
+        periodBox.setValue("language.bymonth");
 
         ComboBox<String> groupBox = new ComboBox<>();
-        groupBox.getItems().addAll("店舗別", "カテゴリ別");
-        groupBox.setValue("店舗別");
+        groupBox.getItems().addAll(tr("language.byshop"), tr("language.bycategory"));
+        groupBox.setValue(tr("language.byshop"));
 
         DatePicker startDatePicker = new DatePicker();
         DatePicker endDatePicker = new DatePicker();
 
-        Button aggregateButton = new Button("集計する");
+        Button aggregateButton = new Button(tr("language.calculate"));
 
         Label totalLabel = new Label();
 
         TableView<AggregationRow> table = new TableView<>();
 
         TableColumn<AggregationRow, String> periodColumn =
-                new TableColumn<>("期間");
+                new TableColumn<>(tr("language.calculation.period"));
 
         periodColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         cell.getValue().getPeriod()));
 
         TableColumn<AggregationRow, String> groupColumn =
-                new TableColumn<>("店舗／カテゴリ");
+                new TableColumn<>(tr("language.shopcategory"));
 
         groupColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         cell.getValue().getGroupName()));
 
         TableColumn<AggregationRow, String> amountColumn =
-                new TableColumn<>("支出額");
+                new TableColumn<>(tr("language.expenditures"));
 
         amountColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         yenFormat.format(
-                                cell.getValue().getTotalYen()) + " 円"));
+                                cell.getValue().getTotalYen()) + tr("language.currency")));
 
         table.getColumns().addAll(
                 periodColumn,
@@ -1677,7 +1677,7 @@ public class ReceiptApp extends Application {
 
                 if (startDate != null && endDate != null
                         && startDate.isAfter(endDate)) {
-                    showMessage("開始日は終了日より前にしてください。");
+                    showMessage(tr("language.calculation.dateerror"));
                     return;
                 }
 
@@ -1703,7 +1703,7 @@ public class ReceiptApp extends Application {
 
                     String period;
 
-                    if ("週別".equals(periodBox.getValue())) {
+                    if (tr("language.byweek").equals(periodBox.getValue())) {
                         LocalDate monday = date.with(
                                 TemporalAdjusters.previousOrSame(
                                         DayOfWeek.MONDAY));
@@ -1716,11 +1716,11 @@ public class ReceiptApp extends Application {
                     }
 
                     // 店舗別集計
-                    if ("店舗別".equals(groupBox.getValue())) {
+                    if (tr("language.byshop").equals(groupBox.getValue())) {
                         String store = receipt.getStoreName();
 
                         if (store == null || store.isBlank()) {
-                            store = "店舗名なし";
+                            store = tr("language.noshopname");
                         }
 
                         String key = period + "\u0001" + store;
@@ -1742,7 +1742,7 @@ public class ReceiptApp extends Application {
                             String category = item.getCategoryName();
 
                             if (category == null || category.isBlank()) {
-                                category = "未分類";
+                                category = tr("language.uncategorized");
                             }
 
                             String key = period + "\u0001" + category;
@@ -1784,13 +1784,13 @@ public class ReceiptApp extends Application {
                         .sum();
 
                 totalLabel.setText(
-                        "集計対象：" + rows.size()
-                                + " 件　合計："
-                                + yenFormat.format(grandTotal) + " 円"
+                        tr("language.calculation.scope") + rows.size()
+                                + tr("language.calculation.casetotal")
+                                + yenFormat.format(grandTotal) + tr("language.currency")
                 );
 
             } catch (Exception e) {
-                showError("支出の集計に失敗しました。", e);
+                showError(tr("language.filedcalculate"), e);
             }
         };
 
@@ -1799,17 +1799,17 @@ public class ReceiptApp extends Application {
 
         HBox controls = new HBox(
                 8,
-                new Label("期間"),
+                new Label(tr("language.calculation.period")),
                 periodBox,
-                new Label("集計方法"),
+                new Label(tr("language.calculation.method")),
                 groupBox
         );
 
         HBox dateControls = new HBox(
                 8,
-                new Label("開始日"),
+                new Label(tr("language.calculation.startdate")),
                 startDatePicker,
-                new Label("終了日"),
+                new Label(tr("language.calculation.enddate")),
                 endDatePicker,
                 aggregateButton
         );
@@ -2019,7 +2019,7 @@ public class ReceiptApp extends Application {
                 javafx.stage.Modality.WINDOW_MODAL
         );
 
-        addStage.setTitle("追加");
+        addStage.setTitle(tr("language.add"));
 
 
         // ==============================
@@ -2042,8 +2042,8 @@ public class ReceiptApp extends Application {
         receiptChoiceList.setPrefWidth(270);
         receiptChoiceList.setPrefHeight(280);
         receiptChoiceList.setPlaceholder(
-                new Label("レシートがありません")
-        );
+                new Label(tr("language.cantfind.receipt")
+        ));
 
         // レシートの表示内容
         receiptChoiceList.setCellFactory(listView ->
@@ -2067,7 +2067,7 @@ public class ReceiptApp extends Application {
                                             + yenFormat.format(
                                             receipt.getTotalYen()
                                     )
-                                            + " 円"
+                                            + tr("language.currency")
                             );
                         }
                     }
@@ -2110,7 +2110,7 @@ public class ReceiptApp extends Application {
 
             } catch (Exception e) {
                 showError(
-                        "追加先レシートを読み込めませんでした。",
+                        tr("language.error.addreceipt"),
                         e
                 );
             }
@@ -2129,11 +2129,11 @@ public class ReceiptApp extends Application {
         TextField newReceiptStore =
                 new TextField();
 
-        newReceiptStore.setPromptText("店名");
+        newReceiptStore.setPromptText(tr("language.shopname"));
         newReceiptStore.setPrefWidth(250);
 
         Button saveReceiptButton =
-                new Button("レシートを追加");
+                new Button(tr("language.adding.receipt"));
 
         saveReceiptButton.setOnAction(event -> {
 
@@ -2146,7 +2146,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "購入日を入力してください。"
+                        tr("language.write.date")
                 );
                 return;
             }
@@ -2155,7 +2155,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "店名を入力してください。"
+                        tr("language.write.shopname")
                 );
                 return;
             }
@@ -2172,7 +2172,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.INFORMATION,
-                        "レシートを追加しました。"
+                        tr("language.added.receipt")
                 );
 
             } catch (Exception e) {
@@ -2180,7 +2180,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        "レシートの追加に失敗しました。\n"
+                        tr("language.filedadd.receipt")
                                 + e.getMessage()
                 );
             }
@@ -2188,9 +2188,9 @@ public class ReceiptApp extends Application {
 
         VBox receiptTabContent = new VBox(
                 12,
-                new Label("購入日"),
+                new Label(tr("language.date")),
                 newReceiptDate,
-                new Label("店名"),
+                new Label(tr("language.shopname")),
                 newReceiptStore,
                 saveReceiptButton
         );
@@ -2200,7 +2200,7 @@ public class ReceiptApp extends Application {
         );
 
         Tab receiptTab = new Tab(
-                "レシート",
+                tr("language.receipt.tab"),
                 receiptTabContent
         );
 
@@ -2212,18 +2212,18 @@ public class ReceiptApp extends Application {
         // ==============================
 
         TextField newItemName = new TextField();
-        newItemName.setPromptText("商品名");
+        newItemName.setPromptText(tr("language.itemname"));
 
         TextField newQuantity = new TextField();
-        newQuantity.setPromptText("数量");
+        newQuantity.setPromptText(tr("language.quantity0"));
 
         TextField newUnitPrice = new TextField();
-        newUnitPrice.setPromptText("単価（円）");
+        newUnitPrice.setPromptText(tr("language.unitprice"));
 
         ComboBox<String> newCategory =
                 new ComboBox<>();
 
-        newCategory.setPromptText("カテゴリ");
+        newCategory.setPromptText(tr("language.categorytab"));
         newCategory.setMaxWidth(Double.MAX_VALUE);
 
         // カテゴリ一覧を読み込む
@@ -2237,23 +2237,23 @@ public class ReceiptApp extends Application {
             }
 
         } catch (Exception e) {
-            showError("カテゴリを読み込めませんでした。", e);
+            showError(tr("language.error0.category"), e);
         }
 
 
         // 商品入力フォーム
         Button saveItemButton =
-                new Button("商品を追加");
+                new Button(tr("language.adding.product"));
 
         VBox productForm = new VBox(
                 10,
-                new Label("商品名"),
+                new Label(tr("language.itemname")),
                 newItemName,
-                new Label("数量"),
+                new Label(tr("language.quantity0")),
                 newQuantity,
-                new Label("単価（円）"),
+                new Label(tr("language.unitprice")),
                 newUnitPrice,
-                new Label("カテゴリ"),
+                new Label(tr("language.categorytab")),
                 newCategory,
                 saveItemButton
         );
@@ -2268,7 +2268,7 @@ public class ReceiptApp extends Application {
         // 左側：レシート選択欄
         VBox receiptSelectPane = new VBox(
                 8,
-                new Label("追加先レシート"),
+                new Label(tr("language.addproduct.selectereceipt")),
                 receiptChoiceList
         );
 
@@ -2313,7 +2313,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "追加先のレシートを選択してください。"
+                        tr("language.select.add.receipt")
                 );
                 return;
             }
@@ -2327,7 +2327,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "language.add.product"
+                        tr("language.add.product")
                 );
                 return;
             }
@@ -2336,7 +2336,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "language.select.category"
+                        tr("language.select.category")
                 );
                 return;
             }
@@ -2353,7 +2353,7 @@ public class ReceiptApp extends Application {
                     showAddWindowMessage(
                             addStage,
                             Alert.AlertType.WARNING,
-                            "language.showEditWindowMessage.isfinite"
+                            tr("language.showEditWindowMessage.isfinite")
                     );
                     return;
                 }
@@ -2362,7 +2362,7 @@ public class ReceiptApp extends Application {
                     showAddWindowMessage(
                             addStage,
                             Alert.AlertType.WARNING,
-                            "language.showEditWindowMessage.unitprice"
+                            tr("language.showEditWindowMessage.unitprice")
                     );
                     return;
                 }
@@ -2408,7 +2408,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.INFORMATION,
-                        "language.added.product"
+                        tr("language.added.product")
                 );
 
             } catch (NumberFormatException e) {
@@ -2416,7 +2416,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "language.showeditwindowmessage.numberformatexception"
+                        tr("language.showeditwindowmessage.numberformatexception")
                 );
 
             } catch (Exception e) {
@@ -2424,7 +2424,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        "language.filedadd.product"
+                        tr("language.filedadd.product")
                                 + e.getMessage()
                 );
             }
@@ -2432,7 +2432,7 @@ public class ReceiptApp extends Application {
 
 
         Tab itemTab = new Tab(
-                "language.product.tab",
+                tr("language.product.tab"),
                 itemTabContent
         );
 
@@ -2445,11 +2445,11 @@ public class ReceiptApp extends Application {
 
         TextField newCategoryName = new TextField();
 
-        newCategoryName.setPromptText("language.add.categoryname");
+        newCategoryName.setPromptText(tr("language.add.categoryname"));
         newCategoryName.setPrefWidth(250);
 
         Button saveCategoryButton =
-                new Button("language.save.category");
+                new Button(tr("language.save.category"));
 
         saveCategoryButton.setOnAction(event -> {
 
@@ -2460,7 +2460,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        "language.add.category"
+                        tr("language.add.category")
                 );
                 return;
             }
@@ -2495,7 +2495,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.INFORMATION,
-                        "language.added.category"
+                        tr("language.added.category")
                 );
 
             } catch (IllegalArgumentException e) {
@@ -2511,7 +2511,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        "language.filedadd.category"
+                        tr("language.filedadd.category")
                                 + e.getMessage()
                 );
             }
@@ -2519,7 +2519,7 @@ public class ReceiptApp extends Application {
 
         VBox categoryTabContent = new VBox(
                 12,
-                new Label("language.categoryname"),
+                new Label(tr("language.categoryname")),
                 newCategoryName,
                 saveCategoryButton
         );
@@ -2529,7 +2529,7 @@ public class ReceiptApp extends Application {
         );
 
         Tab categoryTab = new Tab(
-                "language.categorytab",
+                tr("language.categorytab"),
                 categoryTabContent
         );
 
@@ -2588,7 +2588,7 @@ public class ReceiptApp extends Application {
         editStage.initModality(
                 javafx.stage.Modality.WINDOW_MODAL
         );
-        editStage.setTitle("language.alert.setTitle.edit");
+        editStage.setTitle(tr("language.alert.setTitle.edit"));
 
         TabPane tabPane = new TabPane();
 
@@ -2627,7 +2627,7 @@ public class ReceiptApp extends Application {
                                             + yenFormat.format(
                                             receipt.getTotalYen()
                                     )
-                                            + "language.currency"
+                                            + tr("language.currency")
                             );
                         }
                     }
@@ -2637,7 +2637,7 @@ public class ReceiptApp extends Application {
         DatePicker editDatePicker = new DatePicker();
 
         TextField editStoreField = new TextField();
-        editStoreField.setPromptText("language.shopname");
+        editStoreField.setPromptText(tr("language.shopname"));
 
         receiptList.getSelectionModel()
                 .selectedItemProperty()
@@ -2685,14 +2685,14 @@ public class ReceiptApp extends Application {
 
             } catch (Exception e) {
                 showError(
-                        "language.error.receipt",
+                        tr("language.error.receipt"),
                         e
                 );
             }
         };
 
         Button saveReceiptButton =
-                new Button("language.save.category");
+                new Button(tr("language.save.category"));
 
         saveReceiptButton.setOnAction(event -> {
 
@@ -2703,7 +2703,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.WARNING,
-                        "language.select.edit.receipt0"
+                        tr("language.select.edit.receipt0")
                 );
                 return;
             }
@@ -2763,7 +2763,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.INFORMATION,
-                        "language.updated.receipt"
+                        tr("language.updated.receipt")
                 );
 
             } catch (Exception e) {
