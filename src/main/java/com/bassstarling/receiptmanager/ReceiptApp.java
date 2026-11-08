@@ -63,8 +63,7 @@ public class ReceiptApp extends Application {
     private final TableView<ReceiptItem> itemTable =
             new TableView<>();
 
-    private final Label detailTitle =
-            new Label(tr("language.select.receit"));
+    private Label detailTitle;
 
     TextField statusLabel = new TextField();
 
@@ -85,6 +84,12 @@ public class ReceiptApp extends Application {
             showError(tr("language.failed.reset.database"), e);
             return;
         }
+
+        itemTable.setPlaceholder(
+                new Label(tr("language.table.empty"))
+        );
+
+        detailTitle = new Label(tr("language.select.receit"));
 
         // -------------------------
         // レシート登録フォーム
@@ -230,7 +235,7 @@ public class ReceiptApp extends Application {
             searchCategoryBox.setManaged(searchCategoryBox.isVisible());
 
             if (tr("language.shopname").equals(type)) {
-                searchField.setPromptText(tr("language.write.shopname"));
+                searchField.setPromptText(tr("language.write.shopname0"));
             } else if (tr("language.itemname").equals(type)) {
                 searchField.setPromptText(tr("language.write.itemname"));
             }
@@ -1051,7 +1056,7 @@ public class ReceiptApp extends Application {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError(tr("language.filedadd.category0"), e);
+            showError(tr("language.failedadd.category0"), e);
         }
     }
 
@@ -1163,7 +1168,7 @@ public class ReceiptApp extends Application {
         } catch (NumberFormatException e) {
             showMessage(tr("language.showeditwindowmessage.numberformatexception"));
         } catch (Exception e) {
-            showError(tr("language.filedadd.item0"), e);
+            showError(tr("language.failedadd.item0"), e);
         }
     }
 
@@ -1210,7 +1215,7 @@ public class ReceiptApp extends Application {
             showMessage(tr("language.deleted.item"));
 
         } catch (Exception e) {
-            showError(tr("language.fileddelete.item0"), e);
+            showError(tr("language.faileddelete.item0"), e);
         }
     }
 
@@ -1242,7 +1247,7 @@ public class ReceiptApp extends Application {
     }
 
     // 追加検索条件1行分のUI
-    private static class SearchConditionRow {
+    private class SearchConditionRow {
         final ComboBox<String> typeBox = new ComboBox<>();
         final TextField textField = new TextField();
         final DatePicker datePicker = new DatePicker();
@@ -1252,10 +1257,10 @@ public class ReceiptApp extends Application {
 
         SearchConditionRow(List<String> categories) {
             typeBox.getItems().addAll(
-                    "language.shopname", "language.itemname", "language.categorytab", "language.date");
-            typeBox.setValue("language.shopname");
+                    tr("language.shopname"), tr("language.itemname"), tr("language.categorytab"), tr("language.date"));
+            typeBox.setValue(tr("language.shopname"));
 
-            textField.setPromptText("language.write.shopname");
+            textField.setPromptText(tr("language.write.shopname"));
             categoryBox.getItems().setAll(categories);
 
             datePicker.setVisible(false);
@@ -1268,7 +1273,7 @@ public class ReceiptApp extends Application {
 
             container = new HBox(
                     8,
-                    new Label("language.howadd"),
+                    new Label(tr("language.howadd")),
                     typeBox,
                     textField,
                     datePicker,
@@ -1283,22 +1288,22 @@ public class ReceiptApp extends Application {
             String type = typeBox.getValue();
 
             boolean textVisible =
-                    "language.shopname".equals(type) || "language.itemname".equals(type);
+                    tr("language.shopname").equals(type) || tr("language.itemname").equals(type);
             textField.setVisible(textVisible);
             textField.setManaged(textVisible);
 
-            boolean dateVisible = "language.date".equals(type);
+            boolean dateVisible = tr("language.date").equals(type);
             datePicker.setVisible(dateVisible);
             datePicker.setManaged(dateVisible);
 
-            boolean categoryVisible = "language.categorytab".equals(type);
+            boolean categoryVisible = tr("language.categorytab").equals(type);
             categoryBox.setVisible(categoryVisible);
             categoryBox.setManaged(categoryVisible);
 
-            if ("language.shopname".equals(type)) {
-                textField.setPromptText("language.write.shopname");
-            } else if ("language.itemname".equals(type)) {
-                textField.setPromptText("language.write.itemname");
+            if (tr("language.shopname").equals(type)) {
+                textField.setPromptText(tr("language.write.shopname0"));
+            } else if (tr("language.itemname").equals(type)) {
+                textField.setPromptText(tr("language.write.itemname"));
             }
         }
     }
@@ -1307,17 +1312,17 @@ public class ReceiptApp extends Application {
     private String validateSearchCondition(
             String type, String keyword, LocalDate date, String category) {
 
-        if ("language.shopname".equals(type) && keyword.isBlank()) {
-            return "language.write.shopname";
+        if (tr("language.shopname").equals(type) && keyword.isBlank()) {
+            return tr("language.write.shopname");
         }
-        if ("language.itemname".equals(type) && keyword.isBlank()) {
-            return "language.add.item";
+        if (tr("language.itemname").equals(type) && keyword.isBlank()) {
+            return tr("language.add.item");
         }
-        if ("language.categorytab".equals(type) && category == null) {
-            return "language.select.category";
+        if (tr("language.categorytab").equals(type) && category == null) {
+            return tr("language.select.category");
         }
-        if ("language.date".equals(type) && date == null) {
-            return "language.select.date";
+        if (tr("language.date").equals(type) && date == null) {
+            return tr("language.select.date");
         }
         return null;
     }
@@ -1328,20 +1333,20 @@ public class ReceiptApp extends Application {
 
         String type = condition.type();
 
-        if ("language.shopname".equals(type)) {
+        if (tr("language.shopname").equals(type)) {
             return receipt.getStoreName() != null
                     && receipt.getStoreName().toLowerCase(Locale.ROOT)
                     .contains(condition.keyword().toLowerCase(Locale.ROOT));
         }
 
-        if ("language.date".equals(type)) {
+        if (tr("language.date").equals(type)) {
             return condition.date().equals(receipt.getPurchaseDate());
         }
 
         List<ReceiptItem> receiptItems =
                 repository.findItemsByReceiptId(receipt.getId());
 
-        if ("language.itemname".equals(type)) {
+        if (tr("language.itemname").equals(type)) {
             String keyword = condition.keyword().toLowerCase(Locale.ROOT);
             for (ReceiptItem item : receiptItems) {
                 if (item.getItemName() != null
@@ -1353,7 +1358,7 @@ public class ReceiptApp extends Application {
             return false;
         }
 
-        if ("language.categorytab".equals(type)) {
+        if (tr("language.categorytab").equals(type)) {
             for (ReceiptItem item : receiptItems) {
                 if (condition.category().equals(item.getCategoryName())) {
                     return true;
@@ -1369,18 +1374,18 @@ public class ReceiptApp extends Application {
         String selectedCategory = categoryBox.getValue();
 
         if (selectedCategory == null || selectedCategory.isBlank()) {
-            showMessage("language.select.delete.category");
+            showMessage(tr("language.select.delete.category"));
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "language.confirm.delete.category" + selectedCategory + "language.confirm.delete.alert",
+                tr("language.confirm.delete.category") + selectedCategory + tr("language.confirm.delete.alert"),
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("language.confirm.deleting.category");
+        confirm.setHeaderText(tr("language.confirm.deleting.category"));
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1392,13 +1397,13 @@ public class ReceiptApp extends Application {
 
             loadCategories();
 
-            showMessage("language.deleted.category");
+            showMessage(tr("language.deleted.category"));
 
         } catch (IllegalArgumentException e) {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError("language.fileddelete.category0", e);
+            showError(tr("language.faileddelete.category0"), e);
         }
     }
 
@@ -1407,29 +1412,29 @@ public class ReceiptApp extends Application {
         String newName = categoryNameField.getText().trim();
 
         if (oldName == null || oldName.isBlank()) {
-            showMessage("language.select.edit.category");
+            showMessage(tr("language.select.edit.category"));
             return;
         }
 
         if (newName.isEmpty()) {
-            showMessage("language.write.newname.category");
+            showMessage(tr("language.write.newname.category"));
             return;
         }
 
         if (oldName.equals(newName)) {
-            showMessage("language.editerror.category");
+            showMessage(tr("language.editerror.category"));
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "language.confirm.edit.category" + oldName + "language.confirm.edit.category0"
-                        + newName + "language.confirm.edit.category1",
+                tr("language.confirm.edit.category") + oldName + tr("language.confirm.edit.category0")
+                        + newName + tr("language.confirm.edit.category1"),
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("language.confirm.editing.category");
+        confirm.setHeaderText(tr("language.confirm.editing.category"));
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1446,13 +1451,13 @@ public class ReceiptApp extends Application {
 
             categoryNameField.clear();
 
-            showMessage("language.edited.category");
+            showMessage(tr("language.edited.category"));
 
         } catch (IllegalArgumentException e) {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError("language.filededit.category", e);
+            showError(tr("language.failededit.category"), e);
         }
     }
 
@@ -1461,7 +1466,7 @@ public class ReceiptApp extends Application {
                 receiptTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("language.select.edit.receipt0");
+            showMessage(tr("language.select.edit.receipt0"));
             return;
         }
 
@@ -1469,23 +1474,23 @@ public class ReceiptApp extends Application {
         String newStore = storeField.getText().trim();
 
         if (newDate == null) {
-            showMessage("language.write.date");
+            showMessage(tr("language.write.date"));
             return;
         }
 
         if (newStore.isEmpty()) {
-            showMessage("language.write.shopname");
+            showMessage(tr("language.write.shopname"));
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "language.corfirm.edit.receipt0",
+                tr("language.confirm.edit.receipt0"),
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("language.confirm.editing.receipt");
+        confirm.setHeaderText(tr("language.confirm.editing.receipt"));
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -1511,10 +1516,10 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("language.updated.receipt");
+            showMessage(tr("language.updated.receipt"));
 
         } catch (Exception e) {
-            showError("language.filedupdate.receipt", e);
+            showError(tr("language.failedupdate.receipt"), e);
         }
     }
 
@@ -1523,7 +1528,7 @@ public class ReceiptApp extends Application {
                 itemTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("language.select.edititem");
+            showMessage(tr("language.select.edititem"));
             return;
         }
 
@@ -1540,12 +1545,12 @@ public class ReceiptApp extends Application {
         String categoryName = categoryBox.getValue();
 
         if (itemName.isEmpty()) {
-            showMessage("language.edititem");
+            showMessage(tr("language.edititem"));
             return;
         }
 
         if (categoryName == null || categoryName.isBlank()) {
-            showMessage("language.select.category");
+            showMessage(tr("language.select.category"));
             return;
         }
 
@@ -1576,12 +1581,12 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("language.updated.item");
+            showMessage(tr("language.updated.item"));
 
         } catch (NumberFormatException e) {
-            showMessage("language.refreshitemsforselectedreceipt.numberformatexception");
+            showMessage(tr("language.refreshitemsforselectedreceipt.numberformatexception"));
         } catch (Exception e) {
-            showError("language.filedupdate.item0", e);
+            showError(tr("language.failedupdate.item0"), e);
         }
     }
 
@@ -1621,7 +1626,7 @@ public class ReceiptApp extends Application {
 
         ComboBox<String> periodBox = new ComboBox<>();
         periodBox.getItems().addAll(tr("language.byweek"), tr("language.bymonth"));
-        periodBox.setValue("language.bymonth");
+        periodBox.setValue(tr("language.bymonth"));
 
         ComboBox<String> groupBox = new ComboBox<>();
         groupBox.getItems().addAll(tr("language.byshop"), tr("language.bycategory"));
@@ -1789,7 +1794,7 @@ public class ReceiptApp extends Application {
                 );
 
             } catch (Exception e) {
-                showError(tr("language.filedcalculate"), e);
+                showError(tr("language.failedcalculate"), e);
             }
         };
 
@@ -2179,7 +2184,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedadd.receipt")
+                        tr("language.failedadd.receipt")
                                 + e.getMessage()
                 );
             }
@@ -2423,7 +2428,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedadd.item")
+                        tr("language.failedadd.item")
                                 + e.getMessage()
                 );
             }
@@ -2510,7 +2515,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedadd.category")
+                        tr("language.failedadd.category")
                                 + e.getMessage()
                 );
             }
@@ -2769,7 +2774,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedupdate.receipt")
+                        tr("language.failedupdate.receipt")
                                 + e.getMessage()
                 );
             }
@@ -3153,7 +3158,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedupdate.item")
+                        tr("language.failedupdate.item")
                                 + e.getMessage()
                 );
             }
@@ -3393,7 +3398,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filededit.category")
+                        tr("language.failededit.category")
                                 + e.getMessage()
                 );
             }
@@ -3626,7 +3631,7 @@ public class ReceiptApp extends Application {
                 showDeleteWindowMessage(
                         deleteStage,
                         Alert.AlertType.ERROR,
-                        tr("language.fileddelete.receipt")
+                        tr("language.faileddelete.receipt")
                                 + e.getMessage()
                 );
             }
@@ -3646,7 +3651,7 @@ public class ReceiptApp extends Application {
         reloadReceiptList.run();
 
         Tab receiptTab = new Tab(
-                tr("language.item.receipt"),
+                tr("language.receipt.tab"),
                 receiptTabContent
         );
 
@@ -4070,7 +4075,7 @@ public class ReceiptApp extends Application {
                 showDeleteWindowMessage(
                         deleteStage,
                         Alert.AlertType.ERROR,
-                        tr("language.fileddelete.category")
+                        tr("language.faileddelete.category")
                                 + e.getMessage()
                 );
             }
@@ -4128,7 +4133,7 @@ public class ReceiptApp extends Application {
         Alert alert = new Alert(type);
 
         alert.initOwner(owner);
-        alert.setTitle(tr("language.alert.setTitle"));
+        alert.setTitle(tr("language.alert.settitle"));
         alert.setHeaderText(null);
         alert.setContentText(message);
 
@@ -4369,7 +4374,7 @@ public class ReceiptApp extends Application {
                 javafx.stage.Modality.WINDOW_MODAL
         );
 
-        settingsStage.setTitle("settings.title");
+        settingsStage.setTitle(tr("settings.title"));
 
         // 位置選択
         Label positionLabel =
