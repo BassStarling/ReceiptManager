@@ -25,7 +25,6 @@ import java.util.prefs.Preferences;
 
 import javafx.geometry.Orientation;
 import javafx.scene.control.SplitPane;
-import javafx.scene.layout.Priority;
 
 public class ReceiptApp extends Application {
 
@@ -65,13 +64,13 @@ public class ReceiptApp extends Application {
             new TableView<>();
 
     private final Label detailTitle =
-            new Label("商品明細（レシートを選択してください）");
+            new Label(tr("language.select.receit"));
 
     TextField statusLabel = new TextField();
 
     // 商品名検索時に、商品明細を一致した商品だけに絞り込む設定
-    private boolean showOnlyMatchedProducts = true;
-    private String activeProductNameFilter = null;
+    private boolean showOnlyMatchedItems = true;
+    private String activeItemNameFilter = null;
 
     private final NumberFormat yenFormat =
             NumberFormat.getNumberInstance(Locale.JAPAN);
@@ -83,7 +82,7 @@ public class ReceiptApp extends Application {
             loadLanguage();
             Database.initialize();
         } catch (Exception e) {
-            showError("データベースを初期化できませんでした。", e);
+            showError(tr("language.failed.reset.database"), e);
             return;
         }
 
@@ -91,23 +90,23 @@ public class ReceiptApp extends Application {
         // レシート登録フォーム
         // -------------------------
 
-        storeField.setPromptText("店名");
+        storeField.setPromptText(tr("language.shopname"));
         storeField.setPrefWidth(150);
 
         Button addReceiptButton =
-                new Button("レシートを登録");
+                new Button(tr("language.button.add.receipt0"));
 
         addReceiptButton.setOnAction(
                 event -> addReceipt());
 
-        Button editReceiptButton = new Button("選択レシートを編集");
+        Button editReceiptButton = new Button(tr("language.button.edit.receipt0"));
         editReceiptButton.setOnAction(
                 event -> editReceipt()
         );
 
         HBox receiptForm = new HBox(
                 8,
-                new Label("購入日"),
+                new Label(tr("language.date")),
                 datePicker,
                 storeField,
                 addReceiptButton,
@@ -120,16 +119,16 @@ public class ReceiptApp extends Application {
 
         ComboBox<String> searchTypeBox = new ComboBox<>();
         searchTypeBox.getItems().addAll(
-                "店舗名",
-                "商品名",
-                "タグ（カテゴリ）",
-                "購入日"
+                tr("language.shopname"),
+                tr("language.itemname"),
+                tr("language.categorytab"),
+                tr("language.date")
         );
-        searchTypeBox.setValue("店舗名");
+        searchTypeBox.setValue(tr("language.shopname"));
 
 
         TextField searchField = new TextField();
-        searchField.setPromptText("店舗名を入力");
+        searchField.setPromptText(tr("language.write.shopname"));
 
 // 入力候補の一覧
         ListView<String> searchSuggestions = new ListView<>();
@@ -155,26 +154,26 @@ public class ReceiptApp extends Application {
             e.printStackTrace();
         }
 
-        Button searchButton = new Button("検索");
-        Button clearSearchButton = new Button("検索解除");
-        Button productOnlyFilterButton = new Button(
-                "商品名検索で商品だけを表示する（ON）");
+        Button searchButton = new Button(tr("language.button.search"));
+        Button clearSearchButton = new Button(tr("language.button.clear.search"));
+        Button itemOnlyFilterButton = new Button(
+                tr("language.display.item0"));
 
-        productOnlyFilterButton.setOnAction(event -> {
-            showOnlyMatchedProducts = !showOnlyMatchedProducts;
-            productOnlyFilterButton.setText(
-                    "商品名検索で商品だけを表示する（"
-                            + (showOnlyMatchedProducts ? "ON" : "OFF") + "）");
+        itemOnlyFilterButton.setOnAction(event -> {
+            showOnlyMatchedItems = !showOnlyMatchedItems;
+            itemOnlyFilterButton.setText(
+                    tr("language.display.item")
+                            + (showOnlyMatchedItems ? tr("language.on") : tr("language.off")) + "）");
             refreshItemsForSelectedReceipt();
         });
 
-        Label searchResultLabel = new Label("全件表示");
+        Label searchResultLabel = new Label(tr("language.show.all"));
 
         // 追加検索条件を管理する領域
         List<SearchConditionRow> extraSearchConditions = new ArrayList<>();
         VBox extraSearchConditionsBox = new VBox(5);
 
-        Button addSearchConditionButton = new Button("条件を追加");
+        Button addSearchConditionButton = new Button(tr("language.add.conditions"));
         addSearchConditionButton.setOnAction(event -> {
             try {
                 SearchConditionRow row =
@@ -188,7 +187,7 @@ public class ReceiptApp extends Application {
                 extraSearchConditions.add(row);
                 extraSearchConditionsBox.getChildren().add(row.container);
             } catch (Exception e) {
-                showError("検索条件を追加できませんでした。", e);
+                showError(tr("language.failed.add.condditions"), e);
             }
         });
 
@@ -204,12 +203,12 @@ public class ReceiptApp extends Application {
                 searchResultLabel
         );
 
-        Button aggregationButton = new Button("支出集計");
+        Button aggregationButton = new Button(tr("language.expense.summary"));
 
         aggregationButton.setOnAction(event -> showAggregationDialog());
 
-        HBox productFilterForm = new HBox(8, productOnlyFilterButton);
-        productFilterForm.setPadding(new Insets(3, 5, 3, 5));
+        HBox itemFilterForm = new HBox(8, itemOnlyFilterButton);
+        itemFilterForm.setPadding(new Insets(3, 5, 3, 5));
 
         searchDatePicker.setVisible(false);
         searchDatePicker.setManaged(false);
@@ -220,20 +219,20 @@ public class ReceiptApp extends Application {
         searchTypeBox.setOnAction(event -> {
             String type = searchTypeBox.getValue();
 
-            searchField.setVisible("店舗名".equals(type)
-                    || "商品名".equals(type));
+            searchField.setVisible(tr("language.shopname").equals(type)
+                    || tr("language.itemname").equals(type));
             searchField.setManaged(searchField.isVisible());
 
-            searchDatePicker.setVisible("購入日".equals(type));
+            searchDatePicker.setVisible(tr("language.date").equals(type));
             searchDatePicker.setManaged(searchDatePicker.isVisible());
 
-            searchCategoryBox.setVisible("タグ（カテゴリ）".equals(type));
+            searchCategoryBox.setVisible(tr("language.categorytab").equals(type));
             searchCategoryBox.setManaged(searchCategoryBox.isVisible());
 
-            if ("店舗名".equals(type)) {
-                searchField.setPromptText("店舗名を入力");
-            } else if ("商品名".equals(type)) {
-                searchField.setPromptText("商品名を入力");
+            if (tr("language.shopname").equals(type)) {
+                searchField.setPromptText(tr("language.write.shopname"));
+            } else if (tr("language.itemname").equals(type)) {
+                searchField.setPromptText(tr("language.write.itemname"));
             }
         });
 
@@ -242,8 +241,8 @@ public class ReceiptApp extends Application {
         Runnable updateSuggestions = () -> {
             String type = searchTypeBox.getValue();
 
-            if (!"店舗名".equals(type)
-                    && !"商品名".equals(type)) {
+            if (!tr("language.shopname").equals(type)
+                    && !tr("language.itemname").equals(type)) {
                 searchSuggestions.getItems().clear();
                 searchSuggestions.setVisible(false);
                 searchSuggestions.setManaged(false);
@@ -254,7 +253,7 @@ public class ReceiptApp extends Application {
                 List<String> allSuggestions = new ArrayList<>();
 
                 // 店舗名の候補を取得
-                if ("店舗名".equals(type)) {
+                if (tr("language.shopname").equals(type)) {
                     for (Receipt receipt : repository.findAll()) {
                         String name = receipt.getStoreName();
 
@@ -408,7 +407,7 @@ public class ReceiptApp extends Application {
                     validationMessage = validateSearchCondition(
                             extraType, extraKeyword, extraDate, extraCategory);
                     if (validationMessage != null) {
-                        showMessage("追加条件：" + validationMessage);
+                        showMessage(tr("language.additional.conditions") + validationMessage);
                         return;
                     }
 
@@ -434,7 +433,7 @@ public class ReceiptApp extends Application {
                 }
 
                 // メイン条件が商品名検索の場合、商品明細側の絞り込み語を設定
-                activeProductNameFilter = "商品名".equals(type) ? keyword : null;
+                activeItemNameFilter = tr("language.itemname").equals(type) ? keyword : null;
 
                 receiptTable.getSelectionModel().clearSelection();
                 receipts.setAll(results);
@@ -442,22 +441,22 @@ public class ReceiptApp extends Application {
                 if (!results.isEmpty()) {
                     receiptTable.getSelectionModel().select(0);
                 } else {
-                    showMessage("該当するレシートはありません。");
+                    showMessage(tr("language.notfounded.receipt"));
                 }
 
                 searchResultLabel.setText(
-                        "検索結果：" + results.size()
-                                + " 件 / 全 " + allReceipts.size() + " 件"
+                        tr("language.result") + results.size()
+                                + tr("language.allcase") + allReceipts.size() + tr("language.case")
                 );
 
             } catch (Exception e) {
-                showError("検索に失敗しました。", e);
+                showError(tr("language.failed.search"), e);
             }
         });
 
         // 検索解除ボタン
         clearSearchButton.setOnAction(event -> {
-            activeProductNameFilter = null;
+            activeItemNameFilter = null;
             searchField.clear();
             searchDatePicker.setValue(null);
             searchCategoryBox.setValue(null);
@@ -477,22 +476,22 @@ public class ReceiptApp extends Application {
 
             refreshReceipts();
 
-            searchResultLabel.setText("全 " + receipts.size() + " 件");
-            statusLabel.setText("検索を解除しました。");
+            searchResultLabel.setText(tr("language.all") + receipts.size() + tr("language.case"));
+            statusLabel.setText(tr("language.canceled.search"));
         });
 
-        categoryNameField.setPromptText("新しいカテゴリ名");
+        categoryNameField.setPromptText(tr("language.add.categoryname"));
         categoryNameField.setPrefWidth(160);
 
-        Button addCategoryButton = new Button("カテゴリを追加");
+        Button addCategoryButton = new Button(tr("language.button.add.category0"));
         addCategoryButton.setOnAction(event -> addCategory());
 
-        Button deleteCategoryButton = new Button("選択カテゴリを削除");
+        Button deleteCategoryButton = new Button(tr("language.button.delete.category0"));
         deleteCategoryButton.setOnAction(
                 event -> deleteCategory()
         );
 
-        Button renameCategoryButton = new Button("カテゴリ名を変更");
+        Button renameCategoryButton = new Button(tr("language.button.edit.category0"));
         renameCategoryButton.setOnAction(
                 event -> renameCategory()
         );
@@ -511,7 +510,7 @@ public class ReceiptApp extends Application {
         // -------------------------
 
         TableColumn<Receipt, String> dateColumn =
-                new TableColumn<>("購入日");
+                new TableColumn<>(tr("language.date"));
 
         dateColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -520,7 +519,7 @@ public class ReceiptApp extends Application {
                 ));
 
         TableColumn<Receipt, String> storeColumn =
-                new TableColumn<>("店名");
+                new TableColumn<>(tr("language.shopname"));
 
         storeColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -528,13 +527,13 @@ public class ReceiptApp extends Application {
                 ));
 
         TableColumn<Receipt, String> totalColumn =
-                new TableColumn<>("合計金額");
+                new TableColumn<>(tr("language.total.amount"));
 
         totalColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         yenFormat.format(
                                 cell.getValue().getTotalYen()
-                        ) + " 円"
+                        ) + tr("language.currency")
                 ));
 
         receiptTable.getSelectionModel()
@@ -572,7 +571,7 @@ public class ReceiptApp extends Application {
                 );
 
         Button deleteReceiptButton =
-                new Button("選択したレシートを削除");
+                new Button(tr("language.delete.receipt"));
 
         deleteReceiptButton.setOnAction(
                 event -> deleteReceipt());
@@ -581,21 +580,21 @@ public class ReceiptApp extends Application {
         // 商品明細の入力フォーム
         // -------------------------
 
-        itemNameField.setPromptText("商品名");
+        itemNameField.setPromptText(tr("language.itemname"));
         itemNameField.setPrefWidth(180);
 
-        quantityField.setPromptText("数量");
+        quantityField.setPromptText(tr("language.quantity0"));
         quantityField.setPrefWidth(80);
 
-        unitPriceField.setPromptText("単価（円）");
+        unitPriceField.setPromptText(tr("language.unitprice"));
         unitPriceField.setPrefWidth(110);
 
-        categoryBox.setPromptText("カテゴリ");
+        categoryBox.setPromptText(tr("language.categorytab"));
         categoryBox.setPrefWidth(130);
 
-        Button addItemButton = new Button("商品を追加");
+        Button addItemButton = new Button(tr("language.adding.item"));
         addItemButton.setOnAction(event -> addItem());
-        Button editItemButton = new Button("選択商品を編集");
+        Button editItemButton = new Button(tr("language.button.edit.item0"));
         editItemButton.setOnAction(event -> editItem());
 
         addItemButton.setOnAction(
@@ -609,7 +608,7 @@ public class ReceiptApp extends Application {
         // -------------------------
 
         TableColumn<ReceiptItem, String> itemNameColumn =
-                new TableColumn<>("商品名");
+                new TableColumn<>(tr("language.itemname"));
 
         itemNameColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -617,7 +616,7 @@ public class ReceiptApp extends Application {
                 ));
 
         TableColumn<ReceiptItem, String> quantityColumn =
-                new TableColumn<>("数量");
+                new TableColumn<>(tr("language.quantity0"));
 
         quantityColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
@@ -627,33 +626,33 @@ public class ReceiptApp extends Application {
                 ));
 
         TableColumn<ReceiptItem, String> unitPriceColumn =
-                new TableColumn<>("単価");
+                new TableColumn<>(tr("language.unitprice"));
 
         unitPriceColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         yenFormat.format(
                                 cell.getValue().getUnitPriceYen()
-                        ) + " 円"
+                        ) + tr("language.currency")
                 ));
 
         TableColumn<ReceiptItem, String> subtotalColumn =
-                new TableColumn<>("小計");
+                new TableColumn<>(tr("language.subtotal0"));
 
 
         subtotalColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         yenFormat.format(
                                 cell.getValue().getSubtotalYen()
-                        ) + " 円"
+                        ) + tr("language.currency")
                 ));
 
         TableColumn<ReceiptItem, String> categoryColumn =
-                new TableColumn<>("カテゴリ");
+                new TableColumn<>(tr("language.categorytab"));
 
         categoryColumn.setCellValueFactory(cell ->
                 new javafx.beans.property.SimpleStringProperty(
                         cell.getValue().getCategoryName() == null
-                                ? "未分類"
+                                ? tr("language.uncategorized")
                                 : cell.getValue().getCategoryName()
                 ));
 
@@ -694,7 +693,7 @@ public class ReceiptApp extends Application {
         itemTable.setPrefHeight(200);
 
         Button deleteItemButton =
-                new Button("選択した商品を削除");
+                new Button(tr("language.delete.item"));
 
         deleteItemButton.setOnAction(
                 event -> deleteItem());
@@ -703,16 +702,16 @@ public class ReceiptApp extends Application {
         // 画面全体の配置
         // -------------------------
 
-        Label receiptTitle = new Label("レシート一覧");
+        Label receiptTitle = new Label(tr("language.receipt.list"));
         receiptTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
 
         detailTitle.setStyle(
                 "-fx-font-size: 16px; -fx-font-weight: bold;"
         );
 
-        itemNameField.setPromptText("商品名");
-        quantityField.setPromptText("数量");
-        unitPriceField.setPromptText("単価（円）");
+        itemNameField.setPromptText(tr("language.itemname"));
+        quantityField.setPromptText(tr("language.quantity0"));
+        unitPriceField.setPromptText(tr("language.unitprice"));
 
         HBox itemForm = new HBox(
                 8,
@@ -735,7 +734,7 @@ public class ReceiptApp extends Application {
                 receiptTable,
                 searchForm,
                 aggregationButton,
-                productFilterForm,
+                itemFilterForm,
                 extraSearchConditionsBox,
                 categoryForm,
                 deleteReceiptButton
@@ -752,10 +751,10 @@ public class ReceiptApp extends Application {
         );
 
         // レシート一覧の列幅を復元する
-        restoreTableColumnWidths(receiptTable, "table.receipt");
+        restoreTableColumnWidths(receiptTable, tr("table.receipt"));
 
 // 商品一覧の列幅を復元する
-        restoreTableColumnWidths(itemTable, "table.item");
+        restoreTableColumnWidths(itemTable, tr("table.item"));
 
 // 商品一覧側の領域
         VBox itemListArea = new VBox(
@@ -797,7 +796,7 @@ public class ReceiptApp extends Application {
 // メイン画面
         VBox root = new VBox(
                 8,
-                new Label("レシート管理アプリ"),
+                new Label(tr("language.receiptmanager")),
                 listSplitPane,
                 statusLabel
         );
@@ -806,16 +805,16 @@ public class ReceiptApp extends Application {
         Map<String, javafx.scene.Node> mainScreenSections =
                 new LinkedHashMap<>();
 
-        mainScreenSections.put("レシート入力欄", receiptForm);
-        mainScreenSections.put("商品入力欄", itemForm);
-        mainScreenSections.put("タグ入力欄", categoryForm);
+        mainScreenSections.put(tr("language.section.receiptform"), receiptForm);
+        mainScreenSections.put(tr("language.section.itemform"), itemForm);
+        mainScreenSections.put(tr("language.section.categoryform"), categoryForm);
 
         root.setPadding(new Insets(12));
 
         VBox.setVgrow(receiptTable, Priority.ALWAYS);
         VBox.setVgrow(itemTable, Priority.ALWAYS);
 
-        stage.setTitle("レシート管理アプリ");
+        stage.setTitle(tr("language.receiptmanager"));
 
         // 上部操作バー
         ToolBar operationBar = new ToolBar();
@@ -841,23 +840,23 @@ public class ReceiptApp extends Application {
         Map<String, Button> mainScreenButtons =
                 new LinkedHashMap<>();
 
-        mainScreenButtons.put("レシート登録", addReceiptButton);
-        mainScreenButtons.put("レシート編集", editReceiptButton);
-        mainScreenButtons.put("レシート削除", deleteReceiptButton);
+        mainScreenButtons.put(tr("language.button.add.receipt"), addReceiptButton);
+        mainScreenButtons.put(tr("language.button.edit.receipt"), editReceiptButton);
+        mainScreenButtons.put(tr("language.button.delete.receipt"), deleteReceiptButton);
 
-        mainScreenButtons.put("商品追加", addItemButton);
-        mainScreenButtons.put("商品編集", editItemButton);
-        mainScreenButtons.put("商品削除", deleteItemButton);
+        mainScreenButtons.put(tr("language.button.add.item"), addItemButton);
+        mainScreenButtons.put(tr("language.button.edit.item"), editItemButton);
+        mainScreenButtons.put(tr("language.button.delete.item"), deleteItemButton);
 
-        mainScreenButtons.put("検索", searchButton);
-        mainScreenButtons.put("検索条件追加", addSearchConditionButton);
-        mainScreenButtons.put("検索解除", clearSearchButton);
-        mainScreenButtons.put("商品名検索の表示切替", productOnlyFilterButton);
-        mainScreenButtons.put("支出集計", aggregationButton);
+        mainScreenButtons.put(tr("language.button.search"), searchButton);
+        mainScreenButtons.put(tr("language.button.add.search.criteria"), addSearchConditionButton);
+        mainScreenButtons.put(tr("language.button.clear.search"), clearSearchButton);
+        mainScreenButtons.put(tr("language.button.toggle.item.name.search"), itemOnlyFilterButton);
+        mainScreenButtons.put(tr("language.button.expense.summary"), aggregationButton);
 
-        mainScreenButtons.put("タグ追加", addCategoryButton);
-        mainScreenButtons.put("タグ名変更", renameCategoryButton);
-        mainScreenButtons.put("タグ削除", deleteCategoryButton);
+        mainScreenButtons.put(tr("language.button.add.category"), addCategoryButton);
+        mainScreenButtons.put(tr("language.button.edit.category"), renameCategoryButton);
+        mainScreenButtons.put(tr("language.button.delete.category"), deleteCategoryButton);
 
         addButton.setOnAction(event ->
                 openAddWindow(stage, searchCategoryBox, extraSearchConditions)
@@ -938,12 +937,12 @@ public class ReceiptApp extends Application {
             String store = storeField.getText().trim();
 
             if (date == null) {
-                showMessage("購入日を入力してください。");
+                showMessage(tr("language.write.date"));
                 return;
             }
 
             if (store.isEmpty()) {
-                showMessage("店名を入力してください。");
+                showMessage(tr("language.write.shopname"));
                 return;
             }
 
@@ -958,10 +957,10 @@ public class ReceiptApp extends Application {
                 receiptTable.getSelectionModel().select(0);
             }
 
-            showMessage("レシートを登録しました。");
+            showMessage(tr("language.added.receipt"));
 
         } catch (Exception e) {
-            showError("レシートの登録に失敗しました。", e);
+            showError(tr("language.failedadd.receipt"), e);
         }
     }
 
@@ -972,19 +971,19 @@ public class ReceiptApp extends Application {
                 receiptTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("削除するレシートを選択してください。");
+            showMessage(tr("language.select.delete.receipt0"));
             return;
         }
 
         Alert confirm = new Alert(
                 Alert.AlertType.CONFIRMATION,
-                "「" + selected.getStoreName()
-                        + "」のレシートを削除しますか？",
+                tr("language.confirm.delete.receipt") + selected.getStoreName()
+                        + tr("language.confirm.delete.receipt0"),
                 ButtonType.YES,
                 ButtonType.NO
         );
 
-        confirm.setHeaderText("レシートの削除");
+        confirm.setHeaderText(tr("language.confirm.deleting.receipt"));
 
         if (confirm.showAndWait().orElse(ButtonType.NO)
                 != ButtonType.YES) {
@@ -994,9 +993,9 @@ public class ReceiptApp extends Application {
         try {
             repository.delete(selected.getId());
             refreshReceipts();
-            showMessage("レシートを削除しました。");
+            showMessage(tr("language.deleted.receipt"));
         } catch (Exception e) {
-            showError("削除に失敗しました。", e);
+            showError(tr("language.faileddelete"), e);
         }
     }
 
@@ -1005,7 +1004,7 @@ public class ReceiptApp extends Application {
         try {
             receipts.setAll(repository.findAll());
         } catch (Exception e) {
-            showError("レシート一覧を読み込めませんでした。", e);
+            showError(tr("language.error.receipt"), e);
         }
     }
 
@@ -1024,7 +1023,7 @@ public class ReceiptApp extends Application {
             }
 
         } catch (Exception e) {
-            showError("カテゴリを読み込めませんでした。", e);
+            showError(tr("language.error0.category"), e);
         }
     }
 
@@ -1033,7 +1032,7 @@ public class ReceiptApp extends Application {
         String name = categoryNameField.getText().trim();
 
         if (name.isEmpty()) {
-            showMessage("カテゴリ名を入力してください。");
+            showMessage(tr("language.add.category"));
             return;
         }
 
@@ -1046,13 +1045,13 @@ public class ReceiptApp extends Application {
             // 入力欄を空にする
             categoryNameField.clear();
 
-            showMessage("カテゴリを追加しました。");
+            showMessage(tr("language.added.category"));
 
         } catch (IllegalArgumentException e) {
             showMessage(e.getMessage());
 
         } catch (Exception e) {
-            showError("カテゴリの追加に失敗しました。", e);
+            showError(tr("language.filedadd.category0"), e);
         }
     }
 
@@ -1065,23 +1064,23 @@ public class ReceiptApp extends Application {
         if (selected == null) {
             items.clear();
             detailTitle.setText(
-                    "商品明細（レシートを選択してください）"
+                    tr("language.select.receit")
             );
             return;
         }
 
         detailTitle.setText(
-                "商品明細（" + selected.getStoreName() + "）"
+                tr("language.item0") + "（" + selected.getStoreName() + "）"
         );
 
         try {
             List<ReceiptItem> receiptItems =
                     repository.findItemsByReceiptId(selected.getId());
 
-            if (showOnlyMatchedProducts
-                    && activeProductNameFilter != null
-                    && !activeProductNameFilter.isBlank()) {
-                String keyword = activeProductNameFilter
+            if (showOnlyMatchedItems
+                    && activeItemNameFilter != null
+                    && !activeItemNameFilter.isBlank()) {
+                String keyword = activeItemNameFilter
                         .toLowerCase(Locale.ROOT);
 
                 items.setAll(receiptItems.stream()
@@ -1093,7 +1092,7 @@ public class ReceiptApp extends Application {
                 items.setAll(receiptItems);
             }
         } catch (Exception e) {
-            showError("商品明細を読み込めませんでした。", e);
+            showError(tr("language.error.item0"), e);
         }
     }
 
@@ -1103,7 +1102,7 @@ public class ReceiptApp extends Application {
                 receiptTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("先にレシートを選択してください。");
+            showMessage(tr("language.select.before.receipt"));
             return;
         }
 
@@ -1113,12 +1112,12 @@ public class ReceiptApp extends Application {
         String category = categoryBox.getValue();
 
         if (itemName.isEmpty()) {
-            showMessage("商品名を入力してください。");
+            showMessage(tr("language.write.itemname"));
             return;
         }
 
         if (category == null) {
-            showMessage("カテゴリを選択してください。");
+            showMessage(tr("language.select.category"));
             return;
         }
 
@@ -1127,12 +1126,12 @@ public class ReceiptApp extends Application {
             long unitPrice = Long.parseLong(priceText);
 
             if (!Double.isFinite(quantity) || quantity <= 0) {
-                showMessage("数量は0より大きい数値にしてください。");
+                showMessage(tr("language.showeditwindowmessage.isfinite"));
                 return;
             }
 
             if (unitPrice < 0) {
-                showMessage("単価は0以上で入力してください。");
+                showMessage(tr("language.showeditwindowmessage.unitprice"));
                 return;
             }
 
@@ -1159,12 +1158,12 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("language.added.product0");
+            showMessage(tr("language.added.item0"));
 
         } catch (NumberFormatException e) {
-            showMessage("language.showeditwindowmessage.numberformatexception");
+            showMessage(tr("language.showeditwindowmessage.numberformatexception"));
         } catch (Exception e) {
-            showError("language.filedadd.product0", e);
+            showError(tr("language.filedadd.item0"), e);
         }
     }
 
@@ -1175,7 +1174,7 @@ public class ReceiptApp extends Application {
                 itemTable.getSelectionModel().getSelectedItem();
 
         if (selected == null) {
-            showMessage("language.select.edititem");
+            showMessage(tr("language.select.edititem"));
             return;
         }
 
@@ -1208,10 +1207,10 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("language.deleted.product");
+            showMessage(tr("language.deleted.item"));
 
         } catch (Exception e) {
-            showError("language.fileddelete.product0", e);
+            showError(tr("language.fileddelete.item0"), e);
         }
     }
 
@@ -1223,7 +1222,7 @@ public class ReceiptApp extends Application {
         e.printStackTrace();
 
         Alert alert = new Alert(Alert.AlertType.ERROR);
-        alert.setTitle("language.error");
+        alert.setTitle(tr("language.error"));
         alert.setHeaderText(message);
         alert.setContentText(e.getMessage());
         alert.showAndWait();
@@ -1248,7 +1247,7 @@ public class ReceiptApp extends Application {
         final TextField textField = new TextField();
         final DatePicker datePicker = new DatePicker();
         final ComboBox<String> categoryBox = new ComboBox<>();
-        final Button removeButton = new Button("language.delete.howadd");
+        final Button removeButton = new Button(tr("language.delete.howadd"));
         final HBox container;
 
         SearchConditionRow(List<String> categories) {
@@ -1312,7 +1311,7 @@ public class ReceiptApp extends Application {
             return "language.write.shopname";
         }
         if ("language.itemname".equals(type) && keyword.isBlank()) {
-            return "language.add.product";
+            return "language.add.item";
         }
         if ("language.categorytab".equals(type) && category == null) {
             return "language.select.category";
@@ -1541,7 +1540,7 @@ public class ReceiptApp extends Application {
         String categoryName = categoryBox.getValue();
 
         if (itemName.isEmpty()) {
-            showMessage("language.editproduct");
+            showMessage("language.edititem");
             return;
         }
 
@@ -1577,12 +1576,12 @@ public class ReceiptApp extends Application {
 
             refreshItemsForSelectedReceipt();
 
-            showMessage("language.updated.product");
+            showMessage("language.updated.item");
 
         } catch (NumberFormatException e) {
             showMessage("language.refreshitemsforselectedreceipt.numberformatexception");
         } catch (Exception e) {
-            showError("language.filedupdate.product0", e);
+            showError("language.filedupdate.item0", e);
         }
     }
 
@@ -2133,7 +2132,7 @@ public class ReceiptApp extends Application {
         newReceiptStore.setPrefWidth(250);
 
         Button saveReceiptButton =
-                new Button(tr("language.adding.receipt"));
+                new Button(tr("language.button.add.receipt0"));
 
         saveReceiptButton.setOnAction(event -> {
 
@@ -2243,9 +2242,9 @@ public class ReceiptApp extends Application {
 
         // 商品入力フォーム
         Button saveItemButton =
-                new Button(tr("language.adding.product"));
+                new Button(tr("language.adding.item"));
 
-        VBox productForm = new VBox(
+        VBox itemForm = new VBox(
                 10,
                 new Label(tr("language.itemname")),
                 newItemName,
@@ -2258,17 +2257,17 @@ public class ReceiptApp extends Application {
                 saveItemButton
         );
 
-        productForm.setPadding(
+        itemForm.setPadding(
                 new Insets(10)
         );
 
-        productForm.setPrefWidth(390);
+        itemForm.setPrefWidth(390);
 
 
         // 左側：レシート選択欄
         VBox receiptSelectPane = new VBox(
                 8,
-                new Label(tr("language.addproduct.selectereceipt")),
+                new Label(tr("language.additem.selectereceipt")),
                 receiptChoiceList
         );
 
@@ -2289,7 +2288,7 @@ public class ReceiptApp extends Application {
         HBox itemTabContent = new HBox(
                 10,
                 receiptSelectPane,
-                productForm
+                itemForm
         );
 
         itemTabContent.setPadding(
@@ -2297,7 +2296,7 @@ public class ReceiptApp extends Application {
         );
 
         HBox.setHgrow(
-                productForm,
+                itemForm,
                 Priority.ALWAYS
         );
 
@@ -2327,7 +2326,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.WARNING,
-                        tr("language.add.product")
+                        tr("language.add.item")
                 );
                 return;
             }
@@ -2408,7 +2407,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.INFORMATION,
-                        tr("language.added.product")
+                        tr("language.added.item")
                 );
 
             } catch (NumberFormatException e) {
@@ -2424,7 +2423,7 @@ public class ReceiptApp extends Application {
                 showAddWindowMessage(
                         addStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedadd.product")
+                        tr("language.filedadd.item")
                                 + e.getMessage()
                 );
             }
@@ -2432,7 +2431,7 @@ public class ReceiptApp extends Application {
 
 
         Tab itemTab = new Tab(
-                tr("language.product.tab"),
+                tr("language.item.tab"),
                 itemTabContent
         );
 
@@ -2822,15 +2821,15 @@ public class ReceiptApp extends Application {
 
         // 編集対象レシート一覧
 
-        ObservableList<Receipt> productReceiptChoices =
+        ObservableList<Receipt> itemReceiptChoices =
                 FXCollections.observableArrayList();
 
-        ListView<Receipt> productReceiptList =
-                new ListView<>(productReceiptChoices);
+        ListView<Receipt> itemReceiptList =
+                new ListView<>(itemReceiptChoices);
 
-        productReceiptList.setPrefWidth(220);
+        itemReceiptList.setPrefWidth(220);
 
-        productReceiptList.setCellFactory(listView ->
+        itemReceiptList.setCellFactory(listView ->
                 new ListCell<Receipt>() {
 
                     @Override
@@ -2861,15 +2860,15 @@ public class ReceiptApp extends Application {
 
         // 選択レシートの商品一覧
 
-        ObservableList<ReceiptItem> productChoices =
+        ObservableList<ReceiptItem> itemChoices =
                 FXCollections.observableArrayList();
 
-        ListView<ReceiptItem> productList =
-                new ListView<>(productChoices);
+        ListView<ReceiptItem> itemList =
+                new ListView<>(itemChoices);
 
-        productList.setPrefWidth(240);
+        itemList.setPrefWidth(240);
 
-        productList.setCellFactory(listView ->
+        itemList.setCellFactory(listView ->
                 new ListCell<ReceiptItem>() {
 
                     @Override
@@ -2929,19 +2928,19 @@ public class ReceiptApp extends Application {
 
         // レシートを選択したときに商品一覧を更新する
 
-        productReceiptList.getSelectionModel()
+        itemReceiptList.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((observable, oldReceipt, newReceipt) -> {
 
-                    productChoices.clear();
-                    productList.getSelectionModel().clearSelection();
+                    itemChoices.clear();
+                    itemList.getSelectionModel().clearSelection();
 
                     if (newReceipt == null) {
                         return;
                     }
 
                     try {
-                        productChoices.setAll(
+                        itemChoices.setAll(
                                 repository.findItemsByReceiptId(
                                         newReceipt.getId()
                                 )
@@ -2949,7 +2948,7 @@ public class ReceiptApp extends Application {
 
                     } catch (Exception e) {
                         showError(
-                                tr("language.error.product"),
+                                tr("language.error.item"),
                                 e
                         );
                     }
@@ -2958,7 +2957,7 @@ public class ReceiptApp extends Application {
 
         // 商品を選択したときに編集欄へ反映する
 
-        productList.getSelectionModel()
+        itemList.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((observable, oldItem, newItem) -> {
 
@@ -2989,26 +2988,26 @@ public class ReceiptApp extends Application {
 
         // 編集対象レシートを読み込む
 
-        Runnable reloadProductReceiptList = () -> {
+        Runnable reloadItemReceiptList = () -> {
 
             Receipt previous =
-                    productReceiptList.getSelectionModel()
+                    itemReceiptList.getSelectionModel()
                             .getSelectedItem();
 
             int previousId =
                     previous == null ? -1 : previous.getId();
 
             try {
-                productReceiptChoices.setAll(
+                itemReceiptChoices.setAll(
                         repository.findAll()
                 );
 
                 boolean restored = false;
 
-                for (Receipt receipt : productReceiptChoices) {
+                for (Receipt receipt : itemReceiptChoices) {
 
                     if (receipt.getId() == previousId) {
-                        productReceiptList.getSelectionModel()
+                        itemReceiptList.getSelectionModel()
                                 .select(receipt);
 
                         restored = true;
@@ -3016,8 +3015,8 @@ public class ReceiptApp extends Application {
                     }
                 }
 
-                if (!restored && !productReceiptChoices.isEmpty()) {
-                    productReceiptList.getSelectionModel()
+                if (!restored && !itemReceiptChoices.isEmpty()) {
+                    itemReceiptList.getSelectionModel()
                             .selectFirst();
                 }
 
@@ -3038,11 +3037,11 @@ public class ReceiptApp extends Application {
         saveItemButton.setOnAction(event -> {
 
             Receipt selectedReceipt =
-                    productReceiptList.getSelectionModel()
+                    itemReceiptList.getSelectionModel()
                             .getSelectedItem();
 
             ReceiptItem selectedItem =
-                    productList.getSelectionModel()
+                    itemList.getSelectionModel()
                             .getSelectedItem();
 
             if (selectedReceipt == null || selectedItem == null) {
@@ -3063,7 +3062,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.WARNING,
-                        tr("language.add.product")
+                        tr("language.add.item")
                 );
                 return;
             }
@@ -3127,12 +3126,12 @@ public class ReceiptApp extends Application {
                 refreshItemsForSelectedReceipt();
 
                 // 編集ウィンドウ側の一覧も更新
-                reloadProductReceiptList.run();
+                reloadItemReceiptList.run();
 
                 // 更新した商品を再選択
-                for (ReceiptItem item : productChoices) {
+                for (ReceiptItem item : itemChoices) {
                     if (item.getId() == itemId) {
-                        productList.getSelectionModel().select(item);
+                        itemList.getSelectionModel().select(item);
                         break;
                     }
                 }
@@ -3140,7 +3139,7 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.INFORMATION,
-                        tr("language.updated.product")
+                        tr("language.updated.item")
                 );
 
             } catch (NumberFormatException e) {
@@ -3154,26 +3153,26 @@ public class ReceiptApp extends Application {
                 showEditWindowMessage(
                         editStage,
                         Alert.AlertType.ERROR,
-                        tr("language.filedupdate.product")
+                        tr("language.filedupdate.item")
                                 + e.getMessage()
                 );
             }
         });
 
 
-        VBox productReceiptPane = new VBox(
+        VBox itemReceiptPane = new VBox(
                 8,
                 new Label(tr("language.receipt.list")),
-                productReceiptList
+                itemReceiptList
         );
 
-        VBox productListPane = new VBox(
+        VBox itemListPane = new VBox(
                 8,
-                new Label(tr("language.product.list")),
-                productList
+                new Label(tr("language.item.list")),
+                itemList
         );
 
-        VBox productEditForm = new VBox(
+        VBox itemEditForm = new VBox(
                 10,
                 new Label(tr("language.itemname")),
                 editItemName,
@@ -3186,32 +3185,32 @@ public class ReceiptApp extends Application {
                 saveItemButton
         );
 
-        productReceiptPane.setPadding(new Insets(8));
-        productListPane.setPadding(new Insets(8));
-        productEditForm.setPadding(new Insets(8));
+        itemReceiptPane.setPadding(new Insets(8));
+        itemListPane.setPadding(new Insets(8));
+        itemEditForm.setPadding(new Insets(8));
 
-        VBox.setVgrow(productReceiptList, Priority.ALWAYS);
-        VBox.setVgrow(productList, Priority.ALWAYS);
+        VBox.setVgrow(itemReceiptList, Priority.ALWAYS);
+        VBox.setVgrow(itemList, Priority.ALWAYS);
 
-        HBox productEditContent = new HBox(
+        HBox itemEditContent = new HBox(
                 8,
-                productReceiptPane,
-                productListPane,
-                productEditForm
+                itemReceiptPane,
+                itemListPane,
+                itemEditForm
         );
 
-        productEditContent.setPadding(new Insets(8));
+        itemEditContent.setPadding(new Insets(8));
 
-        HBox.setHgrow(productEditForm, Priority.ALWAYS);
+        HBox.setHgrow(itemEditForm, Priority.ALWAYS);
 
-        reloadProductReceiptList.run();
+        reloadItemReceiptList.run();
 
-        Tab productTab = new Tab(
-                tr("language.product.tab"),
-                productEditContent
+        Tab itemTab = new Tab(
+                tr("language.item.tab"),
+                itemEditContent
         );
 
-        productTab.setClosable(false);
+        itemTab.setClosable(false);
 
 
         // ======================================
@@ -3444,7 +3443,7 @@ public class ReceiptApp extends Application {
 
         tabPane.getTabs().addAll(
                 receiptTab,
-                productTab,
+                itemTab,
                 categoryTab
         );
 
@@ -3647,7 +3646,7 @@ public class ReceiptApp extends Application {
         reloadReceiptList.run();
 
         Tab receiptTab = new Tab(
-                tr("language.product.receipt"),
+                tr("language.item.receipt"),
                 receiptTabContent
         );
 
@@ -3658,15 +3657,15 @@ public class ReceiptApp extends Application {
         // ② 商品削除
         // ======================================
 
-        ObservableList<Receipt> productReceiptChoices =
+        ObservableList<Receipt> itemReceiptChoices =
                 FXCollections.observableArrayList();
 
-        ListView<Receipt> productReceiptList =
-                new ListView<>(productReceiptChoices);
+        ListView<Receipt> itemReceiptList =
+                new ListView<>(itemReceiptChoices);
 
-        productReceiptList.setPrefWidth(230);
+        itemReceiptList.setPrefWidth(230);
 
-        productReceiptList.setCellFactory(listView ->
+        itemReceiptList.setCellFactory(listView ->
                 new ListCell<Receipt>() {
 
                     @Override
@@ -3697,15 +3696,15 @@ public class ReceiptApp extends Application {
 
         // 選択レシートの商品一覧
 
-        ObservableList<ReceiptItem> productChoices =
+        ObservableList<ReceiptItem> itemChoices =
                 FXCollections.observableArrayList();
 
-        ListView<ReceiptItem> productList =
-                new ListView<>(productChoices);
+        ListView<ReceiptItem> itemList =
+                new ListView<>(itemChoices);
 
-        productList.setPrefWidth(250);
+        itemList.setPrefWidth(250);
 
-        productList.setCellFactory(listView ->
+        itemList.setCellFactory(listView ->
                 new ListCell<ReceiptItem>() {
 
                     @Override
@@ -3740,19 +3739,19 @@ public class ReceiptApp extends Application {
 
         // レシートを選択すると商品一覧を更新
 
-        productReceiptList.getSelectionModel()
+        itemReceiptList.getSelectionModel()
                 .selectedItemProperty()
                 .addListener((observable, oldReceipt, newReceipt) -> {
 
-                    productChoices.clear();
-                    productList.getSelectionModel().clearSelection();
+                    itemChoices.clear();
+                    itemList.getSelectionModel().clearSelection();
 
                     if (newReceipt == null) {
                         return;
                     }
 
                     try {
-                        productChoices.setAll(
+                        itemChoices.setAll(
                                 repository.findItemsByReceiptId(
                                         newReceipt.getId()
                                 )
@@ -3760,7 +3759,7 @@ public class ReceiptApp extends Application {
 
                     } catch (Exception e) {
                         showError(
-                                tr("language.error.product"),
+                                tr("language.error.item"),
                                 e
                         );
                     }
@@ -3769,34 +3768,34 @@ public class ReceiptApp extends Application {
 
         // レシート一覧を再読み込み
 
-        Runnable reloadProductReceiptList = () -> {
+        Runnable reloadItemReceiptList = () -> {
 
             Receipt previous =
-                    productReceiptList.getSelectionModel()
+                    itemReceiptList.getSelectionModel()
                             .getSelectedItem();
 
             int previousId =
                     previous == null ? -1 : previous.getId();
 
             try {
-                productReceiptChoices.setAll(
+                itemReceiptChoices.setAll(
                         repository.findAll()
                 );
 
                 boolean restored = false;
 
-                for (Receipt receipt : productReceiptChoices) {
+                for (Receipt receipt : itemReceiptChoices) {
 
                     if (receipt.getId() == previousId) {
-                        productReceiptList.getSelectionModel()
+                        itemReceiptList.getSelectionModel()
                                 .select(receipt);
                         restored = true;
                         break;
                     }
                 }
 
-                if (!restored && !productReceiptChoices.isEmpty()) {
-                    productReceiptList.getSelectionModel()
+                if (!restored && !itemReceiptChoices.isEmpty()) {
+                    itemReceiptList.getSelectionModel()
                             .selectFirst();
                 }
 
@@ -3810,16 +3809,16 @@ public class ReceiptApp extends Application {
 
 
         Button deleteItemButton =
-                new Button(tr("language.delete.product"));
+                new Button(tr("language.delete.item"));
 
         deleteItemButton.setOnAction(event -> {
 
             Receipt selectedReceipt =
-                    productReceiptList.getSelectionModel()
+                    itemReceiptList.getSelectionModel()
                             .getSelectedItem();
 
             ReceiptItem selectedItem =
-                    productList.getSelectionModel()
+                    itemList.getSelectionModel()
                             .getSelectedItem();
 
             if (selectedReceipt == null || selectedItem == null) {
@@ -3833,14 +3832,14 @@ public class ReceiptApp extends Application {
 
             Alert confirm = new Alert(
                     Alert.AlertType.CONFIRMATION,
-                    tr("language.confirm.delete.product") + selectedItem.getItemName()
+                    tr("language.confirm.delete.item") + selectedItem.getItemName()
                             + tr("language.confirm.delete.alert"),
                     ButtonType.YES,
                     ButtonType.NO
             );
 
             confirm.initOwner(deleteStage);
-            confirm.setHeaderText(tr("language.confirm.deleting.product"));
+            confirm.setHeaderText(tr("language.confirm.deleting.item"));
 
             if (confirm.showAndWait().orElse(ButtonType.NO)
                     != ButtonType.YES) {
@@ -3870,75 +3869,75 @@ public class ReceiptApp extends Application {
                 refreshItemsForSelectedReceipt();
 
                 // 削除ウィンドウの商品一覧も更新
-                productChoices.setAll(
+                itemChoices.setAll(
                         repository.findItemsByReceiptId(receiptId)
                 );
 
-                productList.getSelectionModel().clearSelection();
+                itemList.getSelectionModel().clearSelection();
 
                 // 左側のレシート一覧も更新
-                reloadProductReceiptList.run();
+                reloadItemReceiptList.run();
 
                 showDeleteWindowMessage(
                         deleteStage,
                         Alert.AlertType.INFORMATION,
-                        tr("language.deleted.product")
+                        tr("language.deleted.item")
                 );
 
             } catch (Exception e) {
                 showDeleteWindowMessage(
                         deleteStage,
                         Alert.AlertType.ERROR,
-                        tr("languadelete.product")
+                        tr("languadelete.item")
                                 + e.getMessage()
                 );
             }
         });
 
 
-        VBox productReceiptPane = new VBox(
+        VBox itemReceiptPane = new VBox(
                 8,
                 new Label(tr("language.receipt.list")),
-                productReceiptList
+                itemReceiptList
         );
 
-        VBox productListPane = new VBox(
+        VBox itemListPane = new VBox(
                 8,
-                new Label(tr("language.product.list")),
-                productList
+                new Label(tr("language.item.list")),
+                itemList
         );
 
-        VBox productDeletePane = new VBox(
+        VBox itemDeletePane = new VBox(
                 12,
-                new Label(tr("language.delete.product")),
-                new Label(tr("language.select.delete.product")),
+                new Label(tr("language.delete.item")),
+                new Label(tr("language.select.delete.item")),
                 deleteItemButton
         );
 
-        productReceiptPane.setPadding(new Insets(8));
-        productListPane.setPadding(new Insets(8));
-        productDeletePane.setPadding(new Insets(12));
+        itemReceiptPane.setPadding(new Insets(8));
+        itemListPane.setPadding(new Insets(8));
+        itemDeletePane.setPadding(new Insets(12));
 
-        VBox.setVgrow(productReceiptList, Priority.ALWAYS);
-        VBox.setVgrow(productList, Priority.ALWAYS);
+        VBox.setVgrow(itemReceiptList, Priority.ALWAYS);
+        VBox.setVgrow(itemList, Priority.ALWAYS);
 
-        HBox productTabContent = new HBox(
+        HBox itemTabContent = new HBox(
                 8,
-                productReceiptPane,
-                productListPane,
-                productDeletePane
+                itemReceiptPane,
+                itemListPane,
+                itemDeletePane
         );
 
-        productTabContent.setPadding(new Insets(8));
+        itemTabContent.setPadding(new Insets(8));
 
-        reloadProductReceiptList.run();
+        reloadItemReceiptList.run();
 
-        Tab productTab = new Tab(
-                tr("language.product.tab"),
-                productTabContent
+        Tab itemTab = new Tab(
+                tr("language.item.tab"),
+                itemTabContent
         );
 
-        productTab.setClosable(false);
+        itemTab.setClosable(false);
 
 
         // ======================================
@@ -4104,7 +4103,7 @@ public class ReceiptApp extends Application {
 
         tabPane.getTabs().addAll(
                 receiptTab,
-                productTab,
+                itemTab,
                 categoryTab
         );
 
